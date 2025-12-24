@@ -19,16 +19,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 1. Cấu hình CORS: Trỏ thẳng vào cái Bean bên dưới
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            
-            // 2. Tắt CSRF (để API gọi được)
-            .csrf(AbstractHttpConfigurer::disable)
-            
-            // 3. Cấp quyền (Hiện tại bạn đang cho phép tất cả - OK để test)
-            .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
-            );
+                // 1. Cấu hình CORS: Trỏ thẳng vào cái Bean bên dưới
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+                // 2. Tắt CSRF (để API gọi được)
+                .csrf(AbstractHttpConfigurer::disable)
+
+                // 3. Cấp quyền (Hiện tại bạn đang cho phép tất cả - OK để test)
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll());
 
         return http.build();
     }
@@ -37,11 +36,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
+
         // DANH SÁCH KHÁCH MỜI (QUAN TRỌNG NHẤT)
         configuration.setAllowedOrigins(Arrays.asList(
-            "http://localhost:3000",                    // Cho phép máy local
-            "https://fe-building-managers.vercel.app"   // 👈 LINK VERCEL CỦA BẠN (Không có dấu / ở cuối)
+                "http://localhost:3000", // Cho phép máy local
+                "https://fe-building-managers.vercel.app",
+                "https://thanhtung-building.vercel.app" // 👈 LINK VERCEL CỦA BẠN (Không có dấu / ở cuối)
         ));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
