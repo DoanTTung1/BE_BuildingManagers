@@ -9,10 +9,13 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // 1. Áp dụng cho tất cả các API trong hệ thống
-                .allowedOrigins("http://localhost:3000") // 2. Chỉ cho phép Frontend React (port 3000) gọi vào
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS") // 3. Các method được phép
-                .allowedHeaders("*") // 4. Cho phép tất cả các Header (như Authorization...)
-                .allowCredentials(true); // 5. Cho phép gửi cookie/token nếu cần
+        registry.addMapping("/**")
+                .allowedOrigins(
+                    "http://localhost:3000",                     // Cho phép test ở máy
+                    "https://fe-building-managers.vercel.app"    // 👈 THÊM DÒNG NÀY (Link Vercel của bạn)
+                )
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .allowCredentials(true);
     }
 }
