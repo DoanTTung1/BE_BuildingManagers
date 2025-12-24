@@ -15,7 +15,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/building") // Sửa lại chút để URL rõ ràng hơn: /api/admin/building
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')") // Chỉ ADMIN mới được gọi các API này
+//@PreAuthorize("hasRole('ADMIN')") // Chỉ ADMIN mới được gọi các API này
 public class BuildingAPI {
 
     // Inject Service (bắt buộc phải có final để @RequiredArgsConstructor hoạt động)
