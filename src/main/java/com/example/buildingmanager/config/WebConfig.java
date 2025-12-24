@@ -11,9 +11,9 @@ public class WebConfig implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
                 .allowedOrigins(
-                    "http://localhost:3000",                     // Cho phép test ở máy
+                    "http://localhost:3000",
                     "https://fe-building-managers.vercel.app",
-                    "https://thanhtung-building.vercel.app/"   // 👈 THÊM DÒNG NÀY (Link Vercel của bạn)
+                    "https://thanhtung-building.vercel.app" // 👈 ĐÃ SỬA: Xóa dấu / ở cuối
                 )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
