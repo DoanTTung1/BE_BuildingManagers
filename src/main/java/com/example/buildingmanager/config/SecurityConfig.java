@@ -19,31 +19,24 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Cấu hình CORS: Trỏ thẳng vào cái Bean bên dưới
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // 2. Tắt CSRF (để API gọi được)
-                .csrf(AbstractHttpConfigurer::disable)
-
-                // 3. Cấp quyền (Hiện tại bạn đang cho phép tất cả - OK để test)
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll());
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(AbstractHttpConfigurer::disable)
+            .authorizeHttpRequests(auth -> auth
+                .anyRequest().permitAll()); // Cho phép tất cả để test API trước
 
         return http.build();
     }
 
-    // 👇 ĐÂY LÀ CÁI BẠN ĐANG THIẾU 👇
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // SỬA Ở ĐÂY: Sử dụng AllowedOriginPatterns thay vì AllowedOrigins
-        // Dấu "*" ở đây sẽ hoạt động được ngay cả khi setAllowCredentials(true)
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        // SỬA CHỖ NÀY: Dùng AllowedOriginPatterns thay vì AllowedOrigins để tránh lỗi 500
+        configuration.setAllowedOriginPatterns(Arrays.asList("*")); 
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true); // Giữ nguyên cái này để gửi được Token/Cookie
+        configuration.setAllowCredentials(true); 
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
