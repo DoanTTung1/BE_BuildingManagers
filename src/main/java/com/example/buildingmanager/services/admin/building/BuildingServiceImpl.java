@@ -29,11 +29,10 @@ public class BuildingServiceImpl implements BuildingService {
     private final BuildingRepository buildingRepository;
     private final RentAreaRepository rentAreaRepository;
     private final BuildingConverter buildingConverter;
-    private final BuildingSpecification buildingSpecification;
 
     @Override
     public List<BuildingSearchResponse> findAll(BuildingSearchBuilder builder) {
-        Specification<Building> spec = buildingSpecification.build(builder);
+        Specification<Building> spec = BuildingSpecification.build(builder);
         List<Building> buildingEntities = buildingRepository.findAll(spec);
 
         // 2. Dùng Stream API cho gọn
