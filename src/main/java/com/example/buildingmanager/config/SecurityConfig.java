@@ -37,16 +37,13 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // DANH SÁCH KHÁCH MỜI (QUAN TRỌNG NHẤT)
-        configuration.setAllowedOrigins(Arrays.asList(
-                "http://localhost:3000", // Cho phép máy local
-                "https://fe-building-managers.vercel.app",
-                "https://thanhtung-building.vercel.app" // 👈 LINK VERCEL CỦA BẠN (Không có dấu / ở cuối)
-        ));
+        // SỬA Ở ĐÂY: Sử dụng AllowedOriginPatterns thay vì AllowedOrigins
+        // Dấu "*" ở đây sẽ hoạt động được ngay cả khi setAllowCredentials(true)
+        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
 
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(true); // Giữ nguyên cái này để gửi được Token/Cookie
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
