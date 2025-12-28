@@ -104,7 +104,7 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         // Cho phép các nguồn này gọi API (Sửa lại port frontend của bạn nếu khác)
         configuration
-                .setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173", "http://localhost:4200"));
+                .setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173", "http://localhost:4200","https://thanhtung-building.vercel.app"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setAllowCredentials(true);
