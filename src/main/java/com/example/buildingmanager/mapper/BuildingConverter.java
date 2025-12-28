@@ -2,26 +2,31 @@ package com.example.buildingmanager.mapper;
 
 import com.example.buildingmanager.entities.Building;
 import com.example.buildingmanager.entities.District;
-import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
+import com.example.buildingmanager.entities.Rentarea;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
+import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
+import com.example.buildingmanager.models.building.BuildingDetailResponse; // DTO xem chi tiết
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.stream.Collectors;
+
 @Component
 public class BuildingConverter {
 
-    /**
-     * Chuyển từ DTO -> Entity (dùng cho create hoặc update mới)
-     */
+    // --- 1. Dùng cho ADMIN (Search/List) ---
     public BuildingSearchResponse toResponseDTO(Building e) {
         String districName = e.getDistrict() != null ? e.getDistrict().getName() : "";
         String address = e.getStreet() + ", " + e.getWard() + ", " + districName;
         String rentAreaResult = "";
+
+        // Logic nối chuỗi diện tích thuê (100, 200 m2)
         if (e.getRentAreas() != null && !e.getRentAreas().isEmpty()) {
             rentAreaResult = e.getRentAreas().stream()
-                    .map(item -> item.getValue().toString()) // Chuyển số sang chuỗi
-                    .collect(Collectors.joining(", "));      // Nối bằng dấu phẩy
+                    .map(item -> item.getValue().toString()) // Lấy value từ Rentarea
+                    .collect(Collectors.joining(", "));
         }
+
         return BuildingSearchResponse.builder()
                 .id(e.getId())
                 .address(address)
@@ -38,10 +43,67 @@ public class BuildingConverter {
                 .build();
     }
 
+    // --- 2. Dùng cho KHÁCH HÀNG (Xem chi tiết - Detail) --- <--- PHẦN MỚI QUAN
+    // TRỌNG
+    public BuildingDetailResponse toDetailResponse(Building e) {
+        BuildingDetailResponse dto = new BuildingDetailResponse();
+        dto.setId(e.getId());
+        dto.setName(e.getName());
+
+        // Xử lý Quận và Địa chỉ
+        String districtName = "";
+        if (e.getDistrict() != null) {
+            districtName = e.getDistrict().getName(); // Lấy từ District Entity
+        }
+        dto.setDistrictName(districtName);
+        dto.setAddress(e.getStreet() + ", " + e.getWard() + ", " + districtName);
+
+        // Map các trường thông tin chi tiết
+        dto.setStructure(e.getStructure());
+        dto.setNumberOfBasement(e.getNumberOfBasement());
+        dto.setFloorArea(e.getFloorArea());
+        dto.setDirection(e.getDirection());
+        dto.setLevel(e.getLevel());
+        dto.setRentPrice(e.getRentPrice());
+        dto.setRentPriceDescription(e.getRentPriceDescription());
+        dto.setServiceFee(e.getServiceFee());
+        dto.setCarFee(e.getCarFee());
+        dto.setMotorbikeFee(e.getMotorbikeFee());
+        dto.setOvertimeFee(e.getOvertimeFee());
+        dto.setWaterFee(e.getWaterFee());
+        dto.setElectricityFee(e.getElectricityFee());
+        dto.setDeposit(e.getDeposit());
+        dto.setPayment(e.getPayment());
+        dto.setRentTime(e.getRentTime());
+        dto.setDecorationTime(e.getDecorationTime());
+        dto.setBrokerageFee(e.getBrokerageFee());
+        dto.setNote(e.getNote());
+        dto.setLinkOfBuilding(e.getLinkOfBuilding());
+        dto.setMap(e.getMap());
+        dto.setImage(e.getImage());
+
+        // Thông tin quản lý
+        dto.setManagerName(e.getManagerName());
+        dto.setManagerPhoneNumber(e.getManagerPhoneNumber());
+
+        // Xử lý RentArea cho trang chi tiết
+        List<Rentarea> rentAreas = e.getRentAreas();
+        if (rentAreas != null && !rentAreas.isEmpty()) {
+            String areaString = rentAreas.stream()
+                    .map(item -> item.getValue().toString())
+                    .collect(Collectors.joining(", "));
+            dto.setRentAreaResult(areaString + " m2");
+        }
+
+        return dto;
+    }
+
+    // --- 3. Dùng cho ADMIN (Create/Update - Chuyển DTO vào Entity) ---
     public Building toEntity(UpdateAndCreateBuildingDTO dto) {
         District district = null;
         if (dto.getDistrictId() != null) {
-            district = District.builder().id(dto.getDistrictId()).build();
+            district = new District(); // Tạo đối tượng District rỗng
+            district.setId(dto.getDistrictId()); // Chỉ cần set ID để Hibernate tự link
         }
 
         return Building.builder()
@@ -77,9 +139,7 @@ public class BuildingConverter {
                 .build();
     }
 
-    /**
-     * Chuyển từ Entity -> DTO (dùng để trả dữ liệu ra API)
-     */
+    // --- 4. Dùng cho ADMIN (Load dữ liệu cũ lên form sửa) ---
     public UpdateAndCreateBuildingDTO toDTO(Building entity) {
         return UpdateAndCreateBuildingDTO.builder()
                 .id(entity.getId())
@@ -115,12 +175,12 @@ public class BuildingConverter {
                 .build();
     }
 
-    /**
-     * Hàm cập nhật entity cũ từ DTO (dùng cho update)
-     */
+    // --- 5. Hàm update Entity (Dùng cho Update) ---
     public void updateEntity(UpdateAndCreateBuildingDTO dto, Building entity) {
         if (dto.getDistrictId() != null) {
-            entity.setDistrict(District.builder().id(dto.getDistrictId()).build());
+            District d = new District();
+            d.setId(dto.getDistrictId());
+            entity.setDistrict(d);
         }
         entity.setName(dto.getName());
         entity.setStreet(dto.getStreet());

@@ -1,13 +1,10 @@
 package com.example.buildingmanager.entities;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -15,7 +12,7 @@ import java.time.Instant;
 @Table(name = "role")
 public class Role {
     @Id
-    @Column(name = "id", nullable = false)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @Column(name = "name", nullable = false)
@@ -24,16 +21,7 @@ public class Role {
     @Column(name = "code", nullable = false)
     private String code;
 
-    @Column(name = "createddate")
-    private Instant createdDate;
-
-    @Column(name = "modifieddate")
-    private Instant modifiedDate;
-
-    @Column(name = "createdby")
-    private String createdBy;
-
-    @Column(name = "modifiedby")
-    private String modifiedBy;
-
+    // Mapping ngược lại User (Optional - không bắt buộc nếu không cần lấy list user từ role)
+    @ManyToMany(mappedBy = "roles")
+    private List<User> users = new ArrayList<>();
 }
