@@ -3,7 +3,7 @@ package com.example.buildingmanager.controllers.admin;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
-import com.example.buildingmanager.services.admin.building.BuildingService;
+import com.example.buildingmanager.services.building.IBuildingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +19,7 @@ import java.util.List;
 public class BuildingAPI {
 
     // Inject Service (bắt buộc phải có final để @RequiredArgsConstructor hoạt động)
-    private final BuildingService buildingService;
+    private final IBuildingService buildingService;
 
     /**
      * 1. Tìm kiếm tòa nhà
