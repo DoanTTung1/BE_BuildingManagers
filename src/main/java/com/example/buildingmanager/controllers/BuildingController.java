@@ -1,4 +1,4 @@
-package com.example.buildingmanager.controllers.building;
+package com.example.buildingmanager.controllers;
 
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse; // DTO trả về danh sách
 import com.example.buildingmanager.models.building.BuildingDetailResponse; // DTO chi tiết
