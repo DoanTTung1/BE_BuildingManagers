@@ -6,5 +6,6 @@ import com.example.buildingmanager.models.auth.RegisterRequest;
 
 public interface IAuthService {
     AuthResponse login(LoginRequest request);
-    String register(RegisterRequest request);
+
+    AuthResponse register(RegisterRequest request);
 }

@@ -1,5 +1,6 @@
 package com.example.buildingmanager.services.building;
 
+import com.example.buildingmanager.entities.AssignmentBuilding;
 import com.example.buildingmanager.entities.Building;
 import com.example.buildingmanager.entities.User;
 import com.example.buildingmanager.mapper.BuildingConverter;
@@ -8,6 +9,7 @@ import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
 import com.example.buildingmanager.models.building.BuildingDetailResponse;
 import com.example.buildingmanager.models.users.BuildingSearchDTO;
+import com.example.buildingmanager.repositories.AssignmentBuildingRepository;
 import com.example.buildingmanager.repositories.BuildingRepository;
 import com.example.buildingmanager.repositories.UserRepository;
 import com.example.buildingmanager.specifications.BuildingSpecification;
@@ -17,6 +19,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -28,6 +31,8 @@ public class BuildingServiceImpl implements IBuildingService {
     private final BuildingRepository buildingRepository;
     private final BuildingConverter buildingConverter;
     private final UserRepository userRepository;
+    private final AssignmentBuildingRepository assignmentBuildingRepository;
+    
     // --- PHẦN KHÁCH HÀNG (PUBLIC) ---
 
     @Override
@@ -155,6 +160,35 @@ public class BuildingServiceImpl implements IBuildingService {
             buildingRepository.deleteById(id);
         } else {
             throw new RuntimeException("Không tìm thấy tòa nhà để xóa vĩnh viễn!");
+        }
+    }
+
+    @Override
+    public void assignBuildingToStaffs(Long buildingId, List<Long> staffIds) {
+        // 1. Kiểm tra tòa nhà có tồn tại không
+        Building building = buildingRepository.findById(buildingId)
+                .orElseThrow(() -> new RuntimeException("Tòa nhà không tồn tại!"));
+
+        // 2. Xóa hết phân công cũ của tòa nhà này (Reset)
+        assignmentBuildingRepository.deleteByBuilding_Id(buildingId);
+
+        // 3. Nếu danh sách staffIds gửi lên không rỗng -> Tạo phân công mới
+        if (staffIds != null && !staffIds.isEmpty()) {
+            List<AssignmentBuilding> assignments = new ArrayList<>();
+
+            for (Long staffId : staffIds) {
+                User staff = userRepository.findById(staffId)
+                        .orElseThrow(() -> new RuntimeException("Nhân viên ID " + staffId + " không tồn tại!"));
+
+                AssignmentBuilding assignment = new AssignmentBuilding();
+                assignment.setBuilding(building);
+                assignment.setStaff(staff);
+
+                assignments.add(assignment);
+            }
+
+            // Lưu tất cả một lần (Batch insert)
+            assignmentBuildingRepository.saveAll(assignments);
         }
     }
 }

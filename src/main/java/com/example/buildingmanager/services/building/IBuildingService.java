@@ -11,6 +11,7 @@ import java.util.List;
 public interface IBuildingService {
     // --- KHÁCH HÀNG (Public) ---
     BuildingDetailResponse getBuildingById(Long id);
+
     List<BuildingSearchResponse> findAll(BuildingSearchDTO searchDTO);
 
     // --- ADMIN (Quản trị) ---
@@ -31,4 +32,7 @@ public interface IBuildingService {
 
     // 6. Xóa cứng (Hard Delete)
     void hardDeleteBuilding(Long id);
+
+    // Giao tòa nhà (id) cho danh sách nhân viên (staffIds)
+    void assignBuildingToStaffs(Long buildingId, List<Long> staffIds);
 }

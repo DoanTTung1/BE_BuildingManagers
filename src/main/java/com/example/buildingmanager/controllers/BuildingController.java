@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/buildings") 
+@RequestMapping("/api/buildings")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*", maxAge = 3600) // Cho phép FE gọi
 public class BuildingController {
@@ -85,5 +85,12 @@ public class BuildingController {
     public ResponseEntity<String> hardDeleteBuilding(@PathVariable Long id) {
         buildingService.hardDeleteBuilding(id);
         return ResponseEntity.ok("Đã xóa vĩnh viễn dữ liệu!");
+    }
+
+    @PostMapping("/{id}/assignment")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> assignBuilding(@PathVariable Long id, @RequestBody List<Long> staffIds) {
+        buildingService.assignBuildingToStaffs(id, staffIds);
+        return ResponseEntity.ok("Giao tòa nhà thành công!");
     }
 }
