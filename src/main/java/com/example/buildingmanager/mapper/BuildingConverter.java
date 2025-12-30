@@ -1,13 +1,15 @@
 package com.example.buildingmanager.mapper;
 
 import com.example.buildingmanager.entities.Building;
+import com.example.buildingmanager.entities.BuildingImage;
 import com.example.buildingmanager.entities.District;
 import com.example.buildingmanager.entities.Rentarea;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
-import com.example.buildingmanager.models.building.BuildingDetailResponse; // DTO xem chi tiết
+import com.example.buildingmanager.models.building.BuildingDetailResponse;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,7 +25,7 @@ public class BuildingConverter {
         // Logic nối chuỗi diện tích thuê (100, 200 m2)
         if (e.getRentAreas() != null && !e.getRentAreas().isEmpty()) {
             rentAreaResult = e.getRentAreas().stream()
-                    .map(item -> item.getValue().toString()) // Lấy value từ Rentarea
+                    .map(item -> item.getValue().toString())
                     .collect(Collectors.joining(", "));
         }
 
@@ -38,13 +40,12 @@ public class BuildingConverter {
                 .floorArea(e.getFloorArea())
                 .rentPrice(e.getRentPrice())
                 .serviceFee(e.getServiceFee())
-                .avatar(e.getAvatar())
+                .avatar(e.getAvatar()) // Chỉ lấy ảnh đại diện
                 .brokerageFee((e.getBrokerageFee() != null ? e.getBrokerageFee().toString() : ""))
                 .build();
     }
 
-    // --- 2. Dùng cho KHÁCH HÀNG (Xem chi tiết - Detail) --- <--- PHẦN MỚI QUAN
-    // TRỌNG
+    // --- 2. Dùng cho KHÁCH HÀNG (Xem chi tiết - Detail) ---
     public BuildingDetailResponse toDetailResponse(Building e) {
         BuildingDetailResponse dto = new BuildingDetailResponse();
         dto.setId(e.getId());
@@ -53,12 +54,12 @@ public class BuildingConverter {
         // Xử lý Quận và Địa chỉ
         String districtName = "";
         if (e.getDistrict() != null) {
-            districtName = e.getDistrict().getName(); // Lấy từ District Entity
+            districtName = e.getDistrict().getName();
         }
         dto.setDistrictName(districtName);
         dto.setAddress(e.getStreet() + ", " + e.getWard() + ", " + districtName);
 
-        // Map các trường thông tin chi tiết
+        // Map các trường thông tin
         dto.setStructure(e.getStructure());
         dto.setNumberOfBasement(e.getNumberOfBasement());
         dto.setFloorArea(e.getFloorArea());
@@ -80,13 +81,27 @@ public class BuildingConverter {
         dto.setNote(e.getNote());
         dto.setLinkOfBuilding(e.getLinkOfBuilding());
         dto.setMap(e.getMap());
-        dto.setImage(e.getImage());
+
+        // --- SỬA: Xóa setImage, thay bằng setAvatar và Album ảnh ---
+        // dto.setImage(e.getImage()); // DELETE dòng này
+        // (Nếu DTO detail có trường avatar thì set, không thì thôi)
+
+        // Lấy danh sách Album ảnh trả về cho khách xem
+        List<String> albumImages = new ArrayList<>();
+        if (e.getBuildingImages() != null) {
+            albumImages = e.getBuildingImages().stream()
+                    .map(BuildingImage::getLink) // Lấy đường dẫn link
+                    .collect(Collectors.toList());
+        }
+        // Lưu ý: Bạn cần thêm field `private List<String> imageList;` vào
+        // BuildingDetailResponse
+        dto.setImageList(albumImages);
 
         // Thông tin quản lý
         dto.setManagerName(e.getManagerName());
         dto.setManagerPhoneNumber(e.getManagerPhoneNumber());
 
-        // Xử lý RentArea cho trang chi tiết
+        // Xử lý RentArea hiển thị
         List<Rentarea> rentAreas = e.getRentAreas();
         if (rentAreas != null && !rentAreas.isEmpty()) {
             String areaString = rentAreas.stream()
@@ -98,15 +113,15 @@ public class BuildingConverter {
         return dto;
     }
 
-    // --- 3. Dùng cho ADMIN (Create/Update - Chuyển DTO vào Entity) ---
+    // --- 3. Dùng cho ADMIN (Create - Chuyển DTO vào Entity) ---
     public Building toEntity(UpdateAndCreateBuildingDTO dto) {
         District district = null;
         if (dto.getDistrictId() != null) {
-            district = new District(); // Tạo đối tượng District rỗng
-            district.setId(dto.getDistrictId()); // Chỉ cần set ID để Hibernate tự link
+            district = new District();
+            district.setId(dto.getDistrictId());
         }
 
-        return Building.builder()
+        Building building = Building.builder()
                 .name(dto.getName())
                 .street(dto.getStreet())
                 .ward(dto.getWard())
@@ -132,15 +147,38 @@ public class BuildingConverter {
                 .note(dto.getNote())
                 .linkOfBuilding(dto.getLinkOfBuilding())
                 .map(dto.getMap())
-                .image(dto.getImage())
+                // .image(dto.getImage()) --> XÓA DÒNG NÀY
                 .managerName(dto.getManagerName())
                 .managerPhoneNumber(dto.getManagerPhoneNumber())
-                .avatar(dto.getAvatar())
+                .avatar(dto.getAvatar()) // Set Avatar riêng
                 .build();
+
+        // --- XỬ LÝ ALBUM ẢNH (New) ---
+        if (dto.getImageList() != null && !dto.getImageList().isEmpty()) {
+            List<BuildingImage> buildingImages = new ArrayList<>();
+            for (String url : dto.getImageList()) {
+                BuildingImage img = new BuildingImage();
+                img.setLink(url);
+                img.setBuilding(building); // Quan trọng: Gắn ảnh vào tòa nhà
+                buildingImages.add(img);
+            }
+            building.setBuildingImages(buildingImages);
+        }
+
+        return building;
     }
 
     // --- 4. Dùng cho ADMIN (Load dữ liệu cũ lên form sửa) ---
     public UpdateAndCreateBuildingDTO toDTO(Building entity) {
+
+        // Lấy danh sách link ảnh từ Entity để đổ lên Form
+        List<String> imgList = new ArrayList<>();
+        if (entity.getBuildingImages() != null) {
+            imgList = entity.getBuildingImages().stream()
+                    .map(BuildingImage::getLink)
+                    .collect(Collectors.toList());
+        }
+
         return UpdateAndCreateBuildingDTO.builder()
                 .id(entity.getId())
                 .name(entity.getName())
@@ -168,14 +206,15 @@ public class BuildingConverter {
                 .note(entity.getNote())
                 .linkOfBuilding(entity.getLinkOfBuilding())
                 .map(entity.getMap())
-                .image(entity.getImage())
+                // .image(entity.getImage()) --> XÓA
                 .managerName(entity.getManagerName())
                 .managerPhoneNumber(entity.getManagerPhoneNumber())
                 .avatar(entity.getAvatar())
+                .imageList(imgList) // Set list ảnh vào DTO
                 .build();
     }
 
-    // --- 5. Hàm update Entity (Dùng cho Update) ---
+    // --- 5. Hàm update Entity ---
     public void updateEntity(UpdateAndCreateBuildingDTO dto, Building entity) {
         if (dto.getDistrictId() != null) {
             District d = new District();
@@ -206,9 +245,25 @@ public class BuildingConverter {
         entity.setNote(dto.getNote());
         entity.setLinkOfBuilding(dto.getLinkOfBuilding());
         entity.setMap(dto.getMap());
-        entity.setImage(dto.getImage());
+        // entity.setImage(dto.getImage()); --> XÓA
         entity.setManagerName(dto.getManagerName());
         entity.setManagerPhoneNumber(dto.getManagerPhoneNumber());
         entity.setAvatar(dto.getAvatar());
+
+        // --- XỬ LÝ UPDATE ALBUM ẢNH ---
+        // Logic: Xóa cũ -> Thêm mới (Hoặc để Service xử lý việc xóa, ở đây chỉ tạo list
+        // mới)
+        if (dto.getImageList() != null) {
+            // Xóa list cũ trong object Java (Hibernate sẽ tự xử lý DB nếu có
+            // orphanRemoval=true)
+            entity.getBuildingImages().clear();
+
+            for (String url : dto.getImageList()) {
+                BuildingImage img = new BuildingImage();
+                img.setLink(url);
+                img.setBuilding(entity); // Gắn vào entity hiện tại
+                entity.getBuildingImages().add(img);
+            }
+        }
     }
 }

@@ -51,4 +51,5 @@ public class UpdateAndCreateBuildingDTO {
 
     // Input: Checkbox ["TANG_TRET", "NOI_THAT"] -> Service lưu vào bảng trung gian
     private List<String> typeCode;
+    private List<String> imageList;
 }

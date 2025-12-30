@@ -3,6 +3,7 @@ package com.example.buildingmanager.models.building;
 import lombok.Getter;
 import lombok.Setter;
 import java.math.BigDecimal;
+import java.util.List;
 
 @Getter
 @Setter
@@ -40,4 +41,5 @@ public class BuildingDetailResponse {
 
     // Diện tích thuê (VD: "100, 200, 300 m2")
     private String rentAreaResult;
+    private List<String> imageList;
 }

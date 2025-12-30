@@ -2,6 +2,7 @@ package com.example.buildingmanager;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 @EnableJpaAuditing
@@ -9,7 +10,8 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 public class BuildingManagerApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(BuildingManagerApplication.class, args);
-    }
 
+        SpringApplication.run(BuildingManagerApplication.class, args);
+
+    }
 }

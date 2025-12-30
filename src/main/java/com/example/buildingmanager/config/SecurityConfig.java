@@ -53,16 +53,19 @@ public class SecurityConfig {
                         .requestMatchers("/api/customers/contact").permitAll() // Gửi liên hệ
                         .requestMatchers("/images/**", "/css/**", "/js/**").permitAll() // File tĩnh
 
-                        // [CHỐT CHẶN QUAN TRỌNG]: Chỉ cho phép GET danh sách và chi tiết
-                        // (Không dùng /** ở đây để tránh lộ API Admin)
+                        // Chỉ cho phép GET danh sách và chi tiết (Khách xem nhà)
                         .requestMatchers(HttpMethod.GET, "/api/buildings", "/api/buildings/{id}").permitAll()
 
-                        // === NHÓM 2: API RIÊNG CHO ADMIN/STAFF ===
+                        // === NHÓM 2: UPLOAD FILE (MỚI THÊM) ===
+                        // Yêu cầu: Phải đăng nhập mới được Upload (Token hợp lệ)
+                        .requestMatchers("/api/upload/**").authenticated()
+
+                        // === NHÓM 3: API RIÊNG CHO ADMIN/STAFF ===
                         // API này trả về cả tòa nhà đã xóa/ẩn -> Bắt buộc phải đăng nhập
                         .requestMatchers("/api/buildings/admin").hasAnyRole("ADMIN", "STAFF")
 
-                        // === NHÓM 3: QUẢN LÝ TÒA NHÀ (Cần quyền cụ thể) ===
-                        // Thêm mới: USER, STAFF, ADMIN đều được (Tùy nghiệp vụ của bạn)
+                        // === NHÓM 4: QUẢN LÝ TÒA NHÀ (Cần quyền cụ thể) ===
+                        // Thêm mới: USER, STAFF, ADMIN đều được
                         .requestMatchers(HttpMethod.POST, "/api/buildings").hasAnyRole("ADMIN", "STAFF", "USER")
 
                         // Cập nhật: Chỉ nhân viên hoặc Admin
@@ -72,10 +75,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/buildings/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/buildings/*/assignment").hasRole("ADMIN")
 
-                        // === NHÓM 4: QUẢN LÝ NGƯỜI DÙNG ===
+                        // === NHÓM 5: QUẢN LÝ NGƯỜI DÙNG ===
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
-                        // === NHÓM 5: CÁC API KHÁC ===
+                        // === NHÓM 6: CÁC API KHÁC ===
                         // Mặc định các link chưa khai báo ở trên thì phải đăng nhập mới được vào
                         .anyRequest().authenticated())
 

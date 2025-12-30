@@ -42,7 +42,6 @@ public class Building {
     @Column(name = "structure")
     private String structure;
 
-    // DB: numberofbasement (chữ thường) -> Java: numberOfBasement
     @Column(name = "numberofbasement")
     private Integer numberOfBasement;
 
@@ -59,7 +58,7 @@ public class Building {
     private Integer rentPrice;
 
     @Lob
-    @Column(name = "rentpricedescription")
+    @Column(name = "rentpricedescription", columnDefinition = "TEXT") // Thêm columnDefinition cho chắc
     private String rentPriceDescription;
 
     @Column(name = "servicefee")
@@ -101,14 +100,12 @@ public class Building {
     @Column(name = "linkofbuilding")
     private String linkOfBuilding;
 
-    @Column(name = "map")
+    @Column(name = "map", columnDefinition = "TEXT") // Map thường dài (iframe)
     private String map;
 
-    @Column(name = "image")
-    private String image;
+    // Đã xóa trường "image" vì đã có avatar và List buildingImages
 
     // --- AUDITING ---
-    // DB đang dùng datetime -> Java dùng LocalDateTime
     @CreatedDate
     @Column(name = "createddate", updatable = false)
     private LocalDateTime createdDate;
@@ -130,33 +127,29 @@ public class Building {
     @Column(name = "managerphonenumber")
     private String managerPhoneNumber;
 
+    // Ảnh đại diện (Thumbnail) hiển thị ở trang danh sách
     @Column(name = "avatar")
     private String avatar;
-
-    @Lob
-    @Column(name = "map_link")
-    private String mapLink;
 
     @Column(name = "status")
     private Integer status;
 
     // ==========================================================
-    // RELATIONSHIPS (Khớp với DB estatebasic)
+    // RELATIONSHIPS
     // ==========================================================
 
-    // 1. Link với bảng `rentarea` (DB có cột buildingid)
-    @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = {CascadeType.PERSIST, CascadeType.MERGE}, orphanRemoval = true)
+    // 1. Link với bảng `rentarea`
+    @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Rentarea> rentAreas = new ArrayList<>();
 
-    // 2. Link với bảng `assignmentbuilding` (DB có cột buildingid)
-    // Cần tạo Entity AssignmentBuilding để map cái này
+    // 2. Link với bảng `assignmentbuilding`
     @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @Builder.Default
     private List<AssignmentBuilding> assignmentBuildings = new ArrayList<>();
 
-    // 3. Link với bảng `building_image` (DB có cột buildingid)
-    // Cần tạo Entity BuildingImage
+    // 3. Link với bảng `building_image` (Danh sách album ảnh)
+    // ĐÃ SỬA: Chỉ giữ lại 1 List duy nhất, xóa List "images" thừa
     @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BuildingImage> buildingImages = new ArrayList<>();
