@@ -1,6 +1,7 @@
 package com.example.buildingmanager.controllers;
 
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
+import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
 import com.example.buildingmanager.models.building.BuildingDetailResponse; // DTO chi tiết
 import com.example.buildingmanager.models.user.BuildingSearchDTO; // DTO tìm kiếm của User
@@ -28,8 +29,18 @@ public class BuildingController {
      * Dùng BuildingSearchDTO để hỗ trợ tìm theo Quận, Giá, Diện tích...
      */
     @GetMapping
-    public ResponseEntity<List<BuildingSearchResponse>> searchBuildings(@ModelAttribute BuildingSearchDTO searchDTO) {
+    public ResponseEntity<List<BuildingSearchResponse>> searchBuildingsPublic(
+            @ModelAttribute BuildingSearchDTO searchDTO) {
         List<BuildingSearchResponse> result = buildingService.findAll(searchDTO);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/admin")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<List<BuildingSearchResponse>> searchBuildingsAdmin(
+            @ModelAttribute BuildingSearchBuilder builder) {
+        // Lưu ý: Bạn cần import class BuildingSearchBuilder
+        List<BuildingSearchResponse> result = buildingService.findAll(builder);
         return ResponseEntity.ok(result);
     }
 

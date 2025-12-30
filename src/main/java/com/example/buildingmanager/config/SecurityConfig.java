@@ -36,55 +36,65 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // 1. Cấu hình CORS (Cho phép Frontend gọi API)
+                // 1. Cấu hình CORS (Để Frontend React gọi được API)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // 2. Tắt CSRF (Do dùng Token nên không cần)
+                // 2. Tắt CSRF (Do dùng Token JWT nên không cần cái này)
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // 3. Stateless Session (Không lưu session trên server)
+                // 3. Stateless Session (Server không lưu trạng thái đăng nhập, dùng Token để
+                // nhớ)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 4. Phân quyền chi tiết (Authorize Requests)
+                // 4. PHÂN QUYỀN (QUAN TRỌNG NHẤT)
                 .authorizeHttpRequests(auth -> auth
-                        // --- NHÓM PUBLIC (Ai cũng được vào) ---
-                        .requestMatchers("/api/auth/**").permitAll() // Đăng ký/Đăng nhập
-                        .requestMatchers("/api/customers/contact").permitAll() // Khách gửi form liên hệ
-                        .requestMatchers(HttpMethod.GET, "/api/buildings/**").permitAll() // Xem danh sách nhà
-                        .requestMatchers("/images/**", "/css/**", "/js/**").permitAll() // Tài nguyên tĩnh
+                        // === NHÓM 1: CÔNG KHAI (PUBLIC - Ai cũng vào được) ===
+                        .requestMatchers("/api/auth/**").permitAll() // Đăng ký, Đăng nhập
+                        .requestMatchers("/api/customers/contact").permitAll() // Gửi liên hệ
+                        .requestMatchers("/images/**", "/css/**", "/js/**").permitAll() // File tĩnh
 
-                        // --- NHÓM NGƯỜI DÙNG (USER) ---
-                        // Được phép đăng tin (POST)
+                        // [CHỐT CHẶN QUAN TRỌNG]: Chỉ cho phép GET danh sách và chi tiết
+                        // (Không dùng /** ở đây để tránh lộ API Admin)
+                        .requestMatchers(HttpMethod.GET, "/api/buildings", "/api/buildings/{id}").permitAll()
+
+                        // === NHÓM 2: API RIÊNG CHO ADMIN/STAFF ===
+                        // API này trả về cả tòa nhà đã xóa/ẩn -> Bắt buộc phải đăng nhập
+                        .requestMatchers("/api/buildings/admin").hasAnyRole("ADMIN", "STAFF")
+
+                        // === NHÓM 3: QUẢN LÝ TÒA NHÀ (Cần quyền cụ thể) ===
+                        // Thêm mới: USER, STAFF, ADMIN đều được (Tùy nghiệp vụ của bạn)
                         .requestMatchers(HttpMethod.POST, "/api/buildings").hasAnyRole("ADMIN", "STAFF", "USER")
 
-                        // --- NHÓM QUẢN LÝ (ADMIN & STAFF) ---
-                        // Được sửa tin (PUT)
+                        // Cập nhật: Chỉ nhân viên hoặc Admin
                         .requestMatchers(HttpMethod.PUT, "/api/buildings/**").hasAnyRole("ADMIN", "STAFF")
-                        // Xem danh sách khách hàng
-                        .requestMatchers("/api/customers/**").hasAnyRole("ADMIN", "STAFF")
 
-                        // --- NHÓM TỐI CAO (ADMIN) ---
-                        // Chỉ Admin mới được XÓA (DELETE) tòa nhà hoặc quản lý User
+                        // Xóa & Giao việc: Chỉ trùm cuối ADMIN
                         .requestMatchers(HttpMethod.DELETE, "/api/buildings/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/buildings/*/assignment").hasRole("ADMIN")
+
+                        // === NHÓM 4: QUẢN LÝ NGƯỜI DÙNG ===
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
-                        // --- CÁC REQUEST KHÁC ---
+                        // === NHÓM 5: CÁC API KHÁC ===
+                        // Mặc định các link chưa khai báo ở trên thì phải đăng nhập mới được vào
                         .anyRequest().authenticated())
 
-                // 5. Thêm Filter kiểm tra Token trước
+                // 5. Cấu hình Provider xác thực
                 .authenticationProvider(authenticationProvider())
+
+                // 6. Thêm Filter kiểm tra Token trước khi vào các bước trên
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
 
-    // --- CÁC BEAN CẤU HÌNH PHỤ TRỢ ---
+    // --- CÁC BEAN CẤU HÌNH BỔ TRỢ ---
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
-        authProvider.setUserDetailsService(customUserDetailsService);
-        authProvider.setPasswordEncoder(passwordEncoder());
+        authProvider.setUserDetailsService(customUserDetailsService); // Load user từ DB
+        authProvider.setPasswordEncoder(passwordEncoder()); // So sánh pass mã hóa
         return authProvider;
     }
 
@@ -98,15 +108,24 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Cấu hình CORS để Frontend (React/Vue/Angular) không bị chặn
+    // Cấu hình CORS chi tiết
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Cho phép các nguồn này gọi API (Sửa lại port frontend của bạn nếu khác)
-        configuration
-                .setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173", "http://localhost:4200","https://thanhtung-building.vercel.app"));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+
+        // Cho phép các trang Web này gọi API (Frontend của bạn)
+        configuration.setAllowedOrigins(List.of(
+                "http://localhost:3000",
+                "http://localhost:5173",
+                "https://thanhtung-building.vercel.app"));
+
+        // Cho phép các method này
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+
+        // Cho phép gửi kèm Header (như Authorization, Content-Type)
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+
+        // Cho phép gửi kèm credentials (nếu cần cookie)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
