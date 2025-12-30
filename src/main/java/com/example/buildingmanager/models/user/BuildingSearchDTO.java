@@ -1,4 +1,4 @@
-package com.example.buildingmanager.models.users;
+package com.example.buildingmanager.models.user;
 
 import java.util.List;
 

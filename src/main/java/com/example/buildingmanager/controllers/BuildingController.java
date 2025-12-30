@@ -3,7 +3,7 @@ package com.example.buildingmanager.controllers;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
 import com.example.buildingmanager.models.building.BuildingDetailResponse; // DTO chi tiết
-import com.example.buildingmanager.models.users.BuildingSearchDTO; // DTO tìm kiếm của User
+import com.example.buildingmanager.models.user.BuildingSearchDTO; // DTO tìm kiếm của User
 import com.example.buildingmanager.services.building.IBuildingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

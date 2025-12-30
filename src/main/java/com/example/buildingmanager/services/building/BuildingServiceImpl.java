@@ -8,7 +8,7 @@ import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
 import com.example.buildingmanager.models.building.BuildingDetailResponse;
-import com.example.buildingmanager.models.users.BuildingSearchDTO;
+import com.example.buildingmanager.models.user.BuildingSearchDTO;
 import com.example.buildingmanager.repositories.AssignmentBuildingRepository;
 import com.example.buildingmanager.repositories.BuildingRepository;
 import com.example.buildingmanager.repositories.UserRepository;

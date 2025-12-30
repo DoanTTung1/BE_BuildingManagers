@@ -5,7 +5,7 @@ import com.example.buildingmanager.entities.Building;
 import com.example.buildingmanager.entities.Rentarea; // Đã dùng
 import com.example.buildingmanager.entities.User; // Đã dùng
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
-import com.example.buildingmanager.models.users.BuildingSearchDTO;
+import com.example.buildingmanager.models.user.BuildingSearchDTO;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
