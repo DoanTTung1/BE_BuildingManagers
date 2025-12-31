@@ -67,6 +67,50 @@ public class CloudinaryService implements IStorageService {
     }
 
     @Override
-    public void deleteFile(String fileName) {
+    public void deleteFile(String url) {
+        if (url == null || url.isEmpty()) {
+            return;
+        }
+
+        try {
+            // 1. Trích xuất Public ID từ URL
+            // VD URL:
+            // https://res.cloudinary.com/demo/image/upload/v123456789/anh-toa-nha.jpg
+            // -> Cần lấy: "anh-toa-nha"
+            String publicId = getPublicIdFromUrl(url);
+
+            if (publicId != null) {
+                // 2. Gọi lệnh xóa của Cloudinary
+                // ObjectUtils.emptyMap() là tham số config rỗng
+                this.cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
+            }
+        } catch (IOException e) {
+            // Log lỗi ra console nhưng không throw exception để tránh chết luồng chính
+            System.err.println("Cảnh báo: Không xóa được ảnh trên Cloudinary. Lỗi: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Hàm phụ trợ: Tách lấy Public ID từ đường dẫn URL
+     */
+    private String getPublicIdFromUrl(String url) {
+        try {
+            // Nếu chuỗi truyền vào không phải link http (có thể là ID sẵn) thì trả về luôn
+            if (!url.startsWith("http")) {
+                return url;
+            }
+
+            // Logic cắt chuỗi: Lấy phần text nằm giữa dấu '/' cuối cùng và dấu '.' cuối
+            // cùng
+            int lastSlashIndex = url.lastIndexOf("/");
+            int lastDotIndex = url.lastIndexOf(".");
+
+            if (lastSlashIndex != -1 && lastDotIndex != -1 && lastDotIndex > lastSlashIndex) {
+                return url.substring(lastSlashIndex + 1, lastDotIndex);
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 }

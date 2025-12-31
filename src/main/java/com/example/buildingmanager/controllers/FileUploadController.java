@@ -9,7 +9,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -24,19 +23,16 @@ public class FileUploadController {
     private final IStorageService storageService;
 
     // ========================================================================
-    // 1. UPLOAD 1 FILE (Dùng cho Avatar, hoặc upload lẻ)
+    // 1. UPLOAD 1 FILE (Dùng cho Avatar)
     // ========================================================================
     @PostMapping("/image")
     public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
         try {
-            // Gọi Service (Bây giờ nó là CloudinaryService)
-            // Nó trả về luôn link: "https://res.cloudinary.com/..."
+            // CloudinaryService sẽ trả về link full: "https://res.cloudinary.com/..."
             String url = storageService.storeFile(file);
-
-            // Trả về luôn cho Frontend
             return ResponseEntity.ok(url);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
+            return ResponseEntity.badRequest().body("Lỗi upload: " + e.getMessage());
         }
     }
 
@@ -49,52 +45,55 @@ public class FileUploadController {
 
         for (MultipartFile file : files) {
             try {
-                // Lưu từng file
-                String fileName = storageService.storeFile(file);
-
-                // Tạo URL
-                String fileUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                        .path("/api/upload/files/")
-                        .path(fileName)
-                        .toUriString();
-
-                fileUrls.add(fileUrl);
-
+                // Cloudinary trả về URL trực tiếp -> Add vào list luôn
+                String url = storageService.storeFile(file);
+                fileUrls.add(url);
             } catch (Exception e) {
-                // Nếu lỗi 1 file thì log ra console, vẫn tiếp tục các file khác
                 System.err.println("Lỗi upload file [" + file.getOriginalFilename() + "]: " + e.getMessage());
+                // Tiếp tục chạy các file khác chứ không dừng lại
             }
         }
         return ResponseEntity.ok(fileUrls);
     }
 
     // ========================================================================
-    // 3. XEM FILE (Dùng để hiển thị ảnh/video trên trình duyệt)
-    // URL: /api/upload/files/{tên_file}
+    // 3. XÓA FILE (MỚI THÊM - Để xử lý nút X ở Frontend)
+    // ========================================================================
+    @DeleteMapping("/image")
+    public ResponseEntity<?> deleteImage(@RequestParam("url") String url) {
+        try {
+            // Gọi service để xóa trên Cloudinary
+            storageService.deleteFile(url);
+            return ResponseEntity.ok("Đã xóa ảnh thành công: " + url);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Lỗi xóa ảnh: " + e.getMessage());
+        }
+    }
+
+    // ========================================================================
+    // 4. XEM FILE (Chỉ dùng nếu bạn lưu file trên ổ cứng Server Local)
+    // Nếu dùng Cloudinary thì hàm này KHÔNG CẦN THIẾT, nhưng cứ để đó cũng không
+    // sao
     // ========================================================================
     @GetMapping("/files/{fileName:.+}")
     public ResponseEntity<Resource> getFile(@PathVariable String fileName, HttpServletRequest request) {
-        // 1. Load file từ Service
         Resource resource = storageService.loadFileAsResource(fileName);
+        if (resource == null)
+            return ResponseEntity.notFound().build();
 
-        // 2. Xác định Content-Type (Để trình duyệt biết là Ảnh hay Video)
         String contentType = null;
         try {
-            // Tự động nhận diện (VD: image/jpeg, video/mp4, application/pdf...)
             contentType = request.getServletContext().getMimeType(resource.getFile().getAbsolutePath());
         } catch (IOException ex) {
             System.out.println("Không xác định được loại file.");
         }
 
-        // Nếu không nhận diện được thì để mặc định là binary
         if (contentType == null) {
             contentType = "application/octet-stream";
         }
 
-        // 3. Trả về file kèm Header chuẩn
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(contentType))
-                // "inline" nghĩa là hiển thị luôn, "attachment" nghĩa là tải về
                 .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
                 .body(resource);
     }
