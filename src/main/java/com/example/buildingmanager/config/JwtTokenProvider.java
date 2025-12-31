@@ -4,49 +4,57 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
-@Slf4j // Annotation của Lombok để ghi log
+@Slf4j
 public class JwtTokenProvider {
 
-    // Khóa bí mật (SECRET_KEY) phải đủ dài (ít nhất 512 bits) để dùng thuật toán HS512.
-    // Đây là chuỗi Base64 demo, trong thực tế nên để trong application.properties
+    // Khóa bí mật
     private final String JWT_SECRET = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
 
-    // Thời gian hết hạn của Token (tính bằng mili giây)
-    // 604800000L = 7 ngày
+    // Thời gian hết hạn (7 ngày)
     private final long JWT_EXPIRATION = 604800000L;
 
-    /**
-     * Lấy Key ký tên từ chuỗi Secret
-     */
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(JWT_SECRET);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
     /**
-     * Tạo ra token từ username
+     * SỬA QUAN TRỌNG: Thay đổi tham số từ (String username) -> (Authentication
+     * authentication)
+     * Để lấy được cả Username và Roles
      */
-    public String generateToken(String username) {
+    public String generateToken(Authentication authentication) {
+        String username = authentication.getName();
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION);
 
+        // 1. Lấy danh sách quyền từ Authentication (Ví dụ: ["ROLE_ADMIN", "ROLE_USER"])
+        List<String> roles = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toList());
+
         return Jwts.builder()
                 .setSubject(username)
+
+                // 2. THÊM DÒNG NÀY: Nhét quyền vào Token
+                .claim("roles", roles)
+
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(getSignInKey(), SignatureAlgorithm.HS256) // Dùng HS256 cho gọn, hoặc HS512 nếu muốn bảo mật cao hơn
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    /**
-     * Lấy username từ token đã mã hóa
-     */
     public String getUserNameFromJWT(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(getSignInKey())
@@ -57,9 +65,6 @@ public class JwtTokenProvider {
         return claims.getSubject();
     }
 
-    /**
-     * Kiểm tra token có hợp lệ không
-     */
     public boolean validateToken(String authToken) {
         try {
             Jwts.parserBuilder()

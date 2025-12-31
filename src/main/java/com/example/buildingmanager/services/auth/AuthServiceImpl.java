@@ -35,7 +35,7 @@ public class AuthServiceImpl implements IAuthService {
     @Override
     @Transactional
     public AuthResponse login(LoginRequest request) {
-        // 1. Xác thực
+        // 1. Xác thực (Sẽ gọi CustomUserDetailsService để kiểm tra DB)
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUserName(),
@@ -45,9 +45,11 @@ public class AuthServiceImpl implements IAuthService {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 3. Sinh Token
-        String jwt = tokenProvider.generateToken(request.getUserName());
+        // SỬA: Truyền 'authentication' vào thay vì 'request.getUserName()'
+        // Để bên trong lấy được cả Username và Roles
+        String jwt = tokenProvider.generateToken(authentication);
 
-        // 4. Lấy thông tin User từ DB (Tránh lỗi ClassCastException)
+        // 4. Lấy thông tin User từ DB (Để trả về ID, Email... cho Frontend)
         User userDetails = userRepository.findByUserNameAndStatus(request.getUserName(), 1)
                 .orElseThrow(() -> new RuntimeException("User không tồn tại hoặc đã bị khóa!"));
 
@@ -92,16 +94,25 @@ public class AuthServiceImpl implements IAuthService {
         // 4. Lưu vào DB
         User savedUser = userRepository.save(user);
 
-        // 5. TỰ ĐỘNG ĐĂNG NHẬP (Sinh token ngay lập tức)
-        String jwt = tokenProvider.generateToken(savedUser.getUserName());
+        // 5. TỰ ĐỘNG ĐĂNG NHẬP
+        // SỬA: Phải xác thực lại để lấy được object Authentication đầy đủ quyền (có
+        // ROLE_)
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getUserName(),
+                        request.getPassword() // Dùng pass thô chưa mã hóa từ request
+                ));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        // 6. Trả về AuthResponse luôn
+        // Sinh token từ object authentication chuẩn
+        String jwt = tokenProvider.generateToken(authentication);
+
+        // 6. Trả về AuthResponse
         return new AuthResponse(
                 jwt,
                 savedUser.getId(),
                 savedUser.getUserName(),
                 savedUser.getEmail(),
-                Collections.singletonList("USER") // Mới tạo thì chỉ có quyền USER
-        );
+                Collections.singletonList("USER"));
     }
 }
