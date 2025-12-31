@@ -82,8 +82,7 @@ public class BuildingConverter {
         dto.setLinkOfBuilding(e.getLinkOfBuilding());
         dto.setMap(e.getMap());
 
-        // --- SỬA: Xóa setImage, thay bằng setAvatar và Album ảnh ---
-        // dto.setImage(e.getImage()); // DELETE dòng này
+         dto.setImage(e.getAvatar()); 
         // (Nếu DTO detail có trường avatar thì set, không thì thôi)
 
         // Lấy danh sách Album ảnh trả về cho khách xem
