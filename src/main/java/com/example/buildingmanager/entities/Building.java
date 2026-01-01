@@ -94,7 +94,7 @@ public class Building {
     @Column(name = "brokeragefee", precision = 13, scale = 2)
     private BigDecimal brokerageFee;
 
-    @Column(name = "note")
+    @Column(name = "note", columnDefinition = "TEXT")
     private String note;
 
     @Column(name = "linkofbuilding")
