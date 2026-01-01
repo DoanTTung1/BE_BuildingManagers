@@ -52,20 +52,20 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll() // Đăng ký, Đăng nhập
                         .requestMatchers("/api/customers/contact").permitAll() // Gửi liên hệ
                         .requestMatchers("/images/**", "/css/**", "/js/**").permitAll() // File tĩnh
+                        .requestMatchers("/error").permitAll() // Cho phép trang lỗi mặc định
 
                         // Chỉ cho phép GET danh sách và chi tiết (Khách xem nhà)
                         .requestMatchers(HttpMethod.GET, "/api/buildings", "/api/buildings/{id}").permitAll()
 
-                        // === NHÓM 2: UPLOAD FILE (MỚI THÊM) ===
+                        // === NHÓM 2: UPLOAD FILE ===
                         // Yêu cầu: Phải đăng nhập mới được Upload (Token hợp lệ)
                         .requestMatchers("/api/upload/**").authenticated()
 
                         // === NHÓM 3: API RIÊNG CHO ADMIN/STAFF ===
-                        // API này trả về cả tòa nhà đã xóa/ẩn -> Bắt buộc phải đăng nhập
                         .requestMatchers("/api/buildings/admin").hasAnyRole("ADMIN", "STAFF")
 
                         // === NHÓM 4: QUẢN LÝ TÒA NHÀ (Cần quyền cụ thể) ===
-                        // Thêm mới: USER, STAFF, ADMIN đều được
+                        // Thêm mới: USER, STAFF, ADMIN đều được (Miễn là đã đăng nhập và có role)
                         .requestMatchers(HttpMethod.POST, "/api/buildings").hasAnyRole("ADMIN", "STAFF", "USER")
 
                         // Cập nhật: Chỉ nhân viên hoặc Admin
@@ -78,8 +78,12 @@ public class SecurityConfig {
                         // === NHÓM 5: QUẢN LÝ NGƯỜI DÙNG ===
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
+                        // === OPTIONS REQUEST (QUAN TRỌNG CHO CORS) ===
+                        // Cho phép tất cả các request OPTIONS (Preflight) đi qua mà không cần check
+                        // quyền
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // === NHÓM 6: CÁC API KHÁC ===
-                        // Mặc định các link chưa khai báo ở trên thì phải đăng nhập mới được vào
                         .anyRequest().authenticated())
 
                 // 5. Cấu hình Provider xác thực
@@ -111,24 +115,26 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Cấu hình CORS chi tiết
+    // --- CẤU HÌNH CORS (SỬA LẠI ĐỂ FIX LỖI 403) ---
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // Cho phép các trang Web này gọi API (Frontend của bạn)
-        configuration.setAllowedOrigins(List.of(
+        // 1. Cho phép các Domain này (Vercel & Localhost)
+        configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "https://thanhtung-building.vercel.app"));
+                "https://thanhtung-building.vercel.app" // Frontend trên Vercel
+        ));
 
-        // Cho phép các method này
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        // 2. Cho phép TẤT CẢ các method
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
 
-        // Cho phép gửi kèm Header (như Authorization, Content-Type)
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        // 3. [QUAN TRỌNG] Cho phép TẤT CẢ các Header
+        // Thay vì liệt kê từng cái, ta dùng "*" để tránh bị thiếu header gây lỗi 403
+        configuration.setAllowedHeaders(Arrays.asList("*"));
 
-        // Cho phép gửi kèm credentials (nếu cần cookie)
+        // 4. Cho phép gửi Credentials (Cookie, Auth Header)
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
