@@ -14,7 +14,7 @@ public class UserDTO {
     private String phone;
     private String email;
     private Integer status;
-    
+    private String password;
     // Sửa thành List để hứng được nhiều quyền (VD: ["ADMIN", "STAFF"])
     private List<String> roleCodes = new ArrayList<>(); 
 }

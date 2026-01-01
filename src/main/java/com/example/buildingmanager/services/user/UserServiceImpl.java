@@ -26,11 +26,8 @@ public class UserServiceImpl implements IUserService {
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
 
-    // Hàm chuyển đổi từ Entity -> DTO (Viết tay hoặc dùng Mapper + Custom)
     private UserDTO convertToDTO(User user) {
         UserDTO dto = modelMapper.map(user, UserDTO.class);
-
-        // Tự xử lý phần Role (Lấy code từ Set<Role> bỏ vào List<String>)
         List<String> roles = user.getRoles().stream()
                 .map(Role::getCode)
                 .collect(Collectors.toList());
@@ -47,31 +44,55 @@ public class UserServiceImpl implements IUserService {
 
     @Override
     public List<UserDTO> getAllStaffs() {
-        // Gọi hàm repository mới (findByRoles_Code...)
         List<User> staffs = userRepository.findByRoles_CodeAndStatus("STAFF", 1);
         return staffs.stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
 
+    // === ĐÂY LÀ HÀM CẦN SỬA ===
     @Override
     public UserDTO createStaff(UserDTO dto) {
+        // 1. Check trùng tên đăng nhập
         if (userRepository.existsByUserName(dto.getUserName())) {
             throw new RuntimeException("Tên đăng nhập đã tồn tại!");
         }
 
+        // 2. Map dữ liệu cơ bản
         User user = modelMapper.map(dto, User.class);
-        user.setPassword(passwordEncoder.encode("123456"));
+
+        // 3. XỬ LÝ MẬT KHẨU (SỬA: Lấy từ DTO thay vì cứng 123456)
+        if (dto.getPassword() != null && !dto.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(dto.getPassword()));
+        } else {
+            // Fallback nếu frontend quên gửi (mặc định)
+            user.setPassword(passwordEncoder.encode("123456"));
+        }
+
+        // 4. Set Status Active
         user.setStatus(1);
 
-        // --- SỬA PHẦN GÁN ROLE ---
-        Role staffRole = roleRepository.findByCode("STAFF");
-        if (staffRole == null)
-            throw new RuntimeException("Chưa có Role STAFF trong DB!");
-
-        // Vì là ManyToMany nên phải tạo Set và add vào
+        // 5. XỬ LÝ ROLE (SỬA: Lấy từ danh sách roleCodes frontend gửi lên)
         Set<Role> roles = new HashSet<>();
-        roles.add(staffRole);
+
+        if (dto.getRoleCodes() != null && !dto.getRoleCodes().isEmpty()) {
+            // Duyệt qua từng code gửi lên (ví dụ: ["ADMIN"] hoặc ["STAFF"])
+            for (String code : dto.getRoleCodes()) {
+                Role role = roleRepository.findByCode(code);
+                if (role != null) {
+                    roles.add(role);
+                } else {
+                    // Tùy chọn: Báo lỗi nếu gửi role bậy bạ
+                    throw new RuntimeException("Không tìm thấy quyền: " + code);
+                }
+            }
+        } else {
+            // Nếu không gửi gì, mặc định là STAFF
+            Role defaultRole = roleRepository.findByCode("STAFF");
+            if (defaultRole != null)
+                roles.add(defaultRole);
+        }
+
         user.setRoles(roles);
 
         User savedUser = userRepository.save(user);
