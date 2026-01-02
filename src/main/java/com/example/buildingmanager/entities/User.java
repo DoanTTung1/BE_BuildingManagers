@@ -3,7 +3,8 @@ package com.example.buildingmanager.entities;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.util.Date; // Hoặc dùng java.time.LocalDateTime
+import java.util.Date;
+import java.time.LocalDateTime; // Import cái này để xử lý thời gian hết hạn OTP chính xác hơn Date
 import java.util.HashSet;
 import java.util.Set;
 
@@ -26,7 +27,6 @@ public class User {
     @Column(name = "fullname")
     private String fullName;
 
-    // --- Bổ sung các trường còn thiếu theo SQL ---
     @Column(name = "phone")
     private String phone;
 
@@ -36,7 +36,20 @@ public class User {
     @Column(name = "status", nullable = false)
     private Integer status;
 
-    // --- Các trường Audit (Ngày tạo, người tạo) ---
+    // --- CÁC TRƯỜNG MỚI BỔ SUNG CHO TÍNH NĂNG OTP ---
+
+    @Column(name = "is_phone_verified")
+    private boolean phoneVerified = false; // Mặc định false (chưa xác thực)
+
+    @Column(name = "otp_code")
+    private String otpCode; // Lưu mã OTP 6 số
+
+    @Column(name = "otp_expiry")
+    private LocalDateTime otpExpiry; // Thời gian hết hạn của mã OTP
+
+    // ------------------------------------------------
+
+    // --- Các trường Audit ---
     @Column(name = "createddate")
     private Date createdDate;
 
@@ -49,10 +62,8 @@ public class User {
     @Column(name = "modifiedby")
     private String modifiedBy;
 
-    // --- Quan hệ Many-to-Many với Role (thông qua bảng user_role) ---
+    // --- Quan hệ Many-to-Many với Role ---
     @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "user_role", 
-            joinColumns = @JoinColumn(name = "userid"), 
-            inverseJoinColumns = @JoinColumn(name = "roleid")) 
+    @JoinTable(name = "user_role", joinColumns = @JoinColumn(name = "userid"), inverseJoinColumns = @JoinColumn(name = "roleid"))
     private Set<Role> roles = new HashSet<>();
 }
