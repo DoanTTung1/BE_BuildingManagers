@@ -32,7 +32,7 @@ public class BuildingServiceImpl implements IBuildingService {
     private final BuildingConverter buildingConverter;
     private final UserRepository userRepository;
     private final AssignmentBuildingRepository assignmentBuildingRepository;
-    
+
     // --- PHẦN KHÁCH HÀNG (PUBLIC) ---
 
     @Override
@@ -190,5 +190,16 @@ public class BuildingServiceImpl implements IBuildingService {
             // Lưu tất cả một lần (Batch insert)
             assignmentBuildingRepository.saveAll(assignments);
         }
+    }
+
+    @Override
+    public List<BuildingSearchResponse> getMyBuildings(String username) {
+        // 1. Tìm tất cả tòa nhà do user này tạo
+        List<Building> buildings = buildingRepository.findByCreatedBy(username);
+
+        // 2. Convert sang Response
+        return buildings.stream()
+                .map(buildingConverter::toResponseDTO)
+                .collect(Collectors.toList());
     }
 }

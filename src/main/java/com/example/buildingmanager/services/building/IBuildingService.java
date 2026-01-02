@@ -35,4 +35,6 @@ public interface IBuildingService {
 
     // Giao tòa nhà (id) cho danh sách nhân viên (staffIds)
     void assignBuildingToStaffs(Long buildingId, List<Long> staffIds);
+
+    List<BuildingSearchResponse> getMyBuildings(String username);
 }

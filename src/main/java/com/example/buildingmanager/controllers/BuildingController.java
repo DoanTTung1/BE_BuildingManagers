@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -103,5 +104,13 @@ public class BuildingController {
     public ResponseEntity<String> assignBuilding(@PathVariable Long id, @RequestBody List<Long> staffIds) {
         buildingService.assignBuildingToStaffs(id, staffIds);
         return ResponseEntity.ok("Giao tòa nhà thành công!");
+    }
+
+    @GetMapping("/my-posts")
+    public ResponseEntity<?> getMyBuildings() {
+        // Lấy username của người đang đăng nhập
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        List<BuildingSearchResponse> result = buildingService.getMyBuildings(currentUsername);
+        return ResponseEntity.ok(result);
     }
 }
