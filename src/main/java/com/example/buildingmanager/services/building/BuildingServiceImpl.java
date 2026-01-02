@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional // Đảm bảo toàn vẹn dữ liệu
+@Transactional // Đảm bảo toàn vẹn dữ liệu cho mọi thao tác
 public class BuildingServiceImpl implements IBuildingService {
 
     private final BuildingRepository buildingRepository;
@@ -33,46 +33,41 @@ public class BuildingServiceImpl implements IBuildingService {
     private final UserRepository userRepository;
     private final AssignmentBuildingRepository assignmentBuildingRepository;
 
-    // --- PHẦN KHÁCH HÀNG (PUBLIC) ---
+    // =========================================================================
+    // PHẦN KHÁCH HÀNG (PUBLIC)
+    // =========================================================================
 
     @Override
     public BuildingDetailResponse getBuildingById(Long id) {
         Building building = buildingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà ID: " + id));
-        // Kiểm tra nếu tòa nhà bị khóa/xóa mềm thì không cho khách xem (Optional)
-        /*
-         * if (building.getStatus() == 0) {
-         * throw new RuntimeException("Tòa nhà này hiện không khả dụng");
-         * }
-         */
+
+        // Convert Entity -> Detail Response
         return buildingConverter.toDetailResponse(building);
     }
 
     @Override
     public List<BuildingSearchResponse> findAll(BuildingSearchDTO searchDTO) {
-        // 1. Tạo điều kiện tìm kiếm từ DTO (User)
+        // 1. Tạo điều kiện tìm kiếm (Specification)
         Specification<Building> spec = BuildingSpecification.build(searchDTO);
 
-        // 2. Gọi Repository tìm theo điều kiện (Chứ không findAll bừa bãi nữa)
+        // 2. Query Database
         List<Building> buildings = buildingRepository.findAll(spec);
 
-        // 3. Convert sang Response
+        // 3. Convert Entity -> Response
         return buildings.stream()
                 .map(buildingConverter::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
-    // --- PHẦN QUẢN TRỊ VIÊN (ADMIN) ---
+    // =========================================================================
+    // PHẦN QUẢN TRỊ VIÊN (ADMIN) & NGƯỜI ĐĂNG TIN
+    // =========================================================================
 
     @Override
     public List<BuildingSearchResponse> findAll(BuildingSearchBuilder builder) {
-        // 1. Tạo điều kiện tìm kiếm từ Builder (Admin)
         Specification<Building> spec = BuildingSpecification.build(builder);
-
-        // 2. Tìm kiếm
         List<Building> buildings = buildingRepository.findAll(spec);
-
-        // 3. Convert
         return buildings.stream()
                 .map(buildingConverter::toResponseDTO)
                 .collect(Collectors.toList());
@@ -87,55 +82,51 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Override
     public UpdateAndCreateBuildingDTO createBuilding(UpdateAndCreateBuildingDTO dto) {
-        // 1. Convert
+        // 1. Convert DTO -> Entity
         Building building = buildingConverter.toEntity(dto);
 
-        // 2. XỬ LÝ TỰ ĐỘNG ĐIỀN THÔNG TIN QUẢN LÝ
+        // 2. LẤY THÔNG TIN NGƯỜI DÙNG HIỆN TẠI (QUAN TRỌNG)
+        String currentUsername = "";
         try {
-            // Lấy tên đăng nhập hiện tại từ Token
-            String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+            // Lấy username từ Token đang đăng nhập
+            currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
 
-            // Gọi Repository (Sử dụng findBy... và .orElse(null))
-            User currentUser = userRepository.findByUserNameAndStatus(currentUsername, 1)
-                    .orElse(null); // Nếu không tìm thấy thì trả về null
+            // --- FIX LỖI: GÁN NGƯỜI TẠO VÀO ENTITY ---
+            building.setCreatedBy(currentUsername);
+            // -----------------------------------------
 
+            // Tự động điền Tên quản lý / SĐT quản lý nếu người dùng bỏ trống
+            User currentUser = userRepository.findByUserNameAndStatus(currentUsername, 1).orElse(null);
             if (currentUser != null) {
-                // Nếu User không điền tên quản lý -> Lấy "fullName" của người đang đăng nhập
                 if (building.getManagerName() == null || building.getManagerName().isEmpty()) {
                     building.setManagerName(currentUser.getFullName());
                 }
-
-                // Nếu User không điền SĐT -> Lấy SĐT của người đang đăng nhập (Nếu trong User
-                // entity có phone)
-                /*
-                 * if (building.getManagerPhone() == null ||
-                 * building.getManagerPhone().isEmpty()) {
-                 * building.setManagerPhone(currentUser.getPhone());
-                 * }
-                 */
+                // Nếu muốn tự điền SĐT thì bỏ comment dòng dưới:
+                // if (building.getManagerPhone() == null ||
+                // building.getManagerPhone().isEmpty()) {
+                // building.setManagerPhone(currentUser.getPhone());
+                // }
             }
         } catch (Exception e) {
-            System.out.println("Không lấy được thông tin người dùng hiện tại: " + e.getMessage());
-            // Không sao cả, cứ để trống nếu lỗi
+            System.out.println("Lỗi khi lấy thông tin user: " + e.getMessage());
         }
 
-        // 3. Set trạng thái và Lưu
+        // 3. Set trạng thái mặc định (1 = Hoạt động)
         building.setStatus(1);
 
-        // Xử lý RentArea (như mình dặn ở bước trước)
-        // ...
-
+        // 4. Lưu xuống Database
         Building savedBuilding = buildingRepository.save(building);
+
         return buildingConverter.toDTO(savedBuilding);
     }
 
     @Override
     public UpdateAndCreateBuildingDTO updateBuilding(UpdateAndCreateBuildingDTO dto) {
-        // 1. Tìm cái cũ
+        // 1. Tìm tòa nhà cũ
         Building building = buildingRepository.findById(dto.getId())
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà để sửa!"));
 
-        // 2. Update thông tin mới vào cái cũ
+        // 2. Update thông tin từ DTO vào Entity cũ
         buildingConverter.updateEntity(dto, building);
 
         // 3. Lưu lại
@@ -145,37 +136,32 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Override
     public void softDeleteBuilding(Long id) {
-        // Xóa mềm: Chỉ đổi status về 0
         Building building = buildingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà để xóa!"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà!"));
 
-        building.setStatus(0); // 0 = Đã xóa / Ngừng hoạt động
+        building.setStatus(0); // 0 = Đã xóa mềm / Tạm ẩn
         buildingRepository.save(building);
     }
 
     @Override
     public void hardDeleteBuilding(Long id) {
-        // Xóa vĩnh viễn khỏi Database
-        if (buildingRepository.existsById(id)) {
-            buildingRepository.deleteById(id);
-        } else {
-            throw new RuntimeException("Không tìm thấy tòa nhà để xóa vĩnh viễn!");
+        if (!buildingRepository.existsById(id)) {
+            throw new RuntimeException("Không tìm thấy tòa nhà!");
         }
+        buildingRepository.deleteById(id);
     }
 
     @Override
     public void assignBuildingToStaffs(Long buildingId, List<Long> staffIds) {
-        // 1. Kiểm tra tòa nhà có tồn tại không
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Tòa nhà không tồn tại!"));
 
-        // 2. Xóa hết phân công cũ của tòa nhà này (Reset)
+        // 1. Xóa phân công cũ
         assignmentBuildingRepository.deleteByBuilding_Id(buildingId);
 
-        // 3. Nếu danh sách staffIds gửi lên không rỗng -> Tạo phân công mới
+        // 2. Tạo phân công mới nếu có danh sách nhân viên
         if (staffIds != null && !staffIds.isEmpty()) {
             List<AssignmentBuilding> assignments = new ArrayList<>();
-
             for (Long staffId : staffIds) {
                 User staff = userRepository.findById(staffId)
                         .orElseThrow(() -> new RuntimeException("Nhân viên ID " + staffId + " không tồn tại!"));
@@ -183,21 +169,18 @@ public class BuildingServiceImpl implements IBuildingService {
                 AssignmentBuilding assignment = new AssignmentBuilding();
                 assignment.setBuilding(building);
                 assignment.setStaff(staff);
-
                 assignments.add(assignment);
             }
-
-            // Lưu tất cả một lần (Batch insert)
             assignmentBuildingRepository.saveAll(assignments);
         }
     }
 
     @Override
     public List<BuildingSearchResponse> getMyBuildings(String username) {
-        // 1. Tìm tất cả tòa nhà do user này tạo
+        // 1. Tìm tòa nhà theo cột created_by trong Database
         List<Building> buildings = buildingRepository.findByCreatedBy(username);
 
-        // 2. Convert sang Response
+        // 2. Convert sang Response để hiển thị ở Frontend
         return buildings.stream()
                 .map(buildingConverter::toResponseDTO)
                 .collect(Collectors.toList());
