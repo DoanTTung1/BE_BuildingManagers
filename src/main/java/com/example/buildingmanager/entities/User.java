@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.util.Date;
-import java.time.LocalDateTime; // Import cái này để xử lý thời gian hết hạn OTP chính xác hơn Date
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -36,20 +36,22 @@ public class User {
     @Column(name = "status", nullable = false)
     private Integer status;
 
-    // --- CÁC TRƯỜNG MỚI BỔ SUNG CHO TÍNH NĂNG OTP ---
+    // --- BỔ SUNG CỘT AVATAR (QUAN TRỌNG) ---
+    @Column(name = "avatar")
+    private String avatar; // Lưu link ảnh (VD: https://res.cloudinary.com/...)
+    // ---------------------------------------
 
+    // --- CÁC TRƯỜNG CHO TÍNH NĂNG OTP ---
     @Column(name = "is_phone_verified")
-    private boolean phoneVerified = false; // Mặc định false (chưa xác thực)
+    private boolean phoneVerified = false;
 
     @Column(name = "otp_code")
-    private String otpCode; // Lưu mã OTP 6 số
+    private String otpCode;
 
     @Column(name = "otp_expiry")
-    private LocalDateTime otpExpiry; // Thời gian hết hạn của mã OTP
+    private LocalDateTime otpExpiry;
 
-    // ------------------------------------------------
-
-    // --- Các trường Audit ---
+    // --- Audit ---
     @Column(name = "createddate")
     private Date createdDate;
 
@@ -62,7 +64,7 @@ public class User {
     @Column(name = "modifiedby")
     private String modifiedBy;
 
-    // --- Quan hệ Many-to-Many với Role ---
+    // --- Quan hệ Role ---
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(name = "user_role", joinColumns = @JoinColumn(name = "userid"), inverseJoinColumns = @JoinColumn(name = "roleid"))
     private Set<Role> roles = new HashSet<>();
