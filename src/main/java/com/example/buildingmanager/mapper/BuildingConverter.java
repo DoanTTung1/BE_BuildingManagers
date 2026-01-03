@@ -4,17 +4,25 @@ import com.example.buildingmanager.entities.Building;
 import com.example.buildingmanager.entities.BuildingImage;
 import com.example.buildingmanager.entities.District;
 import com.example.buildingmanager.entities.Rentarea;
+import com.example.buildingmanager.entities.Renttype;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
 import com.example.buildingmanager.models.building.BuildingDetailResponse;
+import com.example.buildingmanager.repositories.RenttypeRepository;
+
+import lombok.RequiredArgsConstructor;
+
+
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@RequiredArgsConstructor
 @Component
 public class BuildingConverter {
+    private final RenttypeRepository renttypeRepository;
 
     // --- 1. Dùng cho ADMIN (Search/List) ---
     public BuildingSearchResponse toResponseDTO(Building e) {
@@ -82,7 +90,7 @@ public class BuildingConverter {
         dto.setLinkOfBuilding(e.getLinkOfBuilding());
         dto.setMap(e.getMap());
 
-         dto.setImage(e.getAvatar()); 
+        dto.setImage(e.getAvatar());
         // (Nếu DTO detail có trường avatar thì set, không thì thôi)
 
         // Lấy danh sách Album ảnh trả về cho khách xem
@@ -112,7 +120,7 @@ public class BuildingConverter {
         return dto;
     }
 
-    // --- 3. Dùng cho ADMIN (Create - Chuyển DTO vào Entity) ---
+    // --- 3. Dùng cho ADMIN (Create) ---
     public Building toEntity(UpdateAndCreateBuildingDTO dto) {
         District district = null;
         if (dto.getDistrictId() != null) {
@@ -120,6 +128,7 @@ public class BuildingConverter {
             district.setId(dto.getDistrictId());
         }
 
+        // Tạo Building từ các thông tin cơ bản
         Building building = Building.builder()
                 .name(dto.getName())
                 .street(dto.getStreet())
@@ -146,22 +155,28 @@ public class BuildingConverter {
                 .note(dto.getNote())
                 .linkOfBuilding(dto.getLinkOfBuilding())
                 .map(dto.getMap())
-                // .image(dto.getImage()) --> XÓA DÒNG NÀY
                 .managerName(dto.getManagerName())
                 .managerPhoneNumber(dto.getManagerPhoneNumber())
-                .avatar(dto.getAvatar()) // Set Avatar riêng
+                .avatar(dto.getAvatar())
                 .build();
 
-        // --- XỬ LÝ ALBUM ẢNH (New) ---
+        // --- XỬ LÝ ALBUM ẢNH (Code cũ của bạn) ---
         if (dto.getImageList() != null && !dto.getImageList().isEmpty()) {
             List<BuildingImage> buildingImages = new ArrayList<>();
             for (String url : dto.getImageList()) {
                 BuildingImage img = new BuildingImage();
                 img.setLink(url);
-                img.setBuilding(building); // Quan trọng: Gắn ảnh vào tòa nhà
+                img.setBuilding(building);
                 buildingImages.add(img);
             }
             building.setBuildingImages(buildingImages);
+        }
+
+        // --- [MỚI] XỬ LÝ LOẠI TÒA NHÀ (MANY-TO-MANY) ---
+        // Logic: Lấy list code từ DTO -> Tìm trong DB -> Gán vào Building
+        if (dto.getTypeCode() != null && !dto.getTypeCode().isEmpty()) {
+            List<Renttype> rentTypes = renttypeRepository.findByCodeIn(dto.getTypeCode());
+            building.setRentTypes(rentTypes);
         }
 
         return building;

@@ -3,6 +3,7 @@ package com.example.buildingmanager.specifications;
 import com.example.buildingmanager.entities.AssignmentBuilding;
 import com.example.buildingmanager.entities.Building;
 import com.example.buildingmanager.entities.Rentarea;
+import com.example.buildingmanager.entities.Renttype;
 import com.example.buildingmanager.entities.User;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.user.BuildingSearchDTO;
@@ -15,33 +16,38 @@ import java.util.List;
 
 public class BuildingSpecification {
 
-    // 1. ADMIN (Giữ nguyên hoặc copy logic dưới lên)
+    // 1. ADMIN (Giữ nguyên)
     public static Specification<Building> build(BuildingSearchBuilder search) {
         return (root, query, cb) -> cb.conjunction();
     }
 
-    // 2. USER
+    // 2. USER (SỬA PHẦN NÀY)
     public static Specification<Building> build(BuildingSearchDTO search) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
-
             if (search == null)
                 return cb.conjunction();
-
-            // ... (Các điều kiện 1 -> 7 giữ nguyên như cũ) ...
 
             // --- 1. TÊN ---
             if (StringUtils.hasText(search.getName())) {
                 conditions.add(cb.like(cb.lower(root.get("name")), "%" + search.getName().trim().toLowerCase() + "%"));
             }
+
             // --- 2. SÀN ---
             if (search.getFloorArea() != null) {
                 conditions.add(cb.greaterThanOrEqualTo(root.get("floorArea"), search.getFloorArea()));
             }
-            // --- 3. QUẬN ---
+
+            // --- 3. [SỬA LẠI] QUẬN (QUAN TRỌNG) ---
+            // Frontend gửi "QUAN_1". Ta phải join vào District và so sánh cột CODE.
+            // Dùng 'equal' thay vì 'like' để chính xác tuyệt đối (tránh tìm QUAN_1 ra
+            // QUAN_10)
             if (StringUtils.hasText(search.getDistrict())) {
-                conditions.add(cb.like(root.get("district").get("code"), "%" + search.getDistrict() + "%"));
+                // Giả sử Building có quan hệ @ManyToOne với District
+                // Và District có field 'code'
+                conditions.add(cb.equal(root.get("district").get("code"), search.getDistrict()));
             }
+
             // --- 4. DIỆN TÍCH THUÊ ---
             if (search.getAreaFrom() != null || search.getAreaTo() != null) {
                 Join<Building, Rentarea> rentAreaJoin = root.join("rentAreas", JoinType.INNER);
@@ -50,6 +56,7 @@ public class BuildingSpecification {
                 if (search.getAreaTo() != null)
                     conditions.add(cb.lessThanOrEqualTo(rentAreaJoin.get("value"), search.getAreaTo()));
             }
+
             // --- 5. GIÁ ---
             if (search.getRentPriceFrom() != null)
                 conditions.add(cb.greaterThanOrEqualTo(root.get("rentPrice"), search.getRentPriceFrom()));
@@ -61,6 +68,7 @@ public class BuildingSpecification {
                 conditions.add(
                         cb.like(cb.lower(root.get("managerName")), "%" + search.getManagerName().toLowerCase() + "%"));
             }
+
             // --- 7. NHÂN VIÊN ---
             if (StringUtils.hasText(search.getStaffName())) {
                 Join<Building, AssignmentBuilding> assignmentJoin = root.join("assignmentBuildings", JoinType.INNER);
@@ -69,18 +77,15 @@ public class BuildingSpecification {
                         cb.like(cb.lower(staffJoin.get("fullName")), "%" + search.getStaffName().toLowerCase() + "%"));
             }
 
-            // --- 8. [ĐÃ SỬA] LOẠI TÒA NHÀ ---
-            // Logic: Vì lưu dạng chuỗi "TANG_TRET,NGUYEN_CAN", ta dùng OR LIKE để tìm
+            // --- 8. LOẠI TÒA NHÀ ---
             if (search.getTypeCode() != null && !search.getTypeCode().isEmpty()) {
-                List<Predicate> typePredicates = new ArrayList<>();
-                for (String code : search.getTypeCode()) {
-                    // Tìm xem chuỗi type có chứa code này không
-                    typePredicates.add(cb.like(root.get("type"), "%" + code + "%"));
-                }
-                // Dùng OR (chỉ cần thỏa mãn 1 trong các loại chọn là được)
-                conditions.add(cb.or(typePredicates.toArray(new Predicate[0])));
-            }
+                // 1. Join trực tiếp từ Building sang Renttype
+                Join<Building, Renttype> typeJoin = root.join("rentTypes");
 
+                // 2. Tìm các tòa nhà có code nằm trong danh sách gửi lên
+                // query.distinct(true) là bắt buộc để tránh ra trùng lặp kết quả
+                conditions.add(typeJoin.get("code").in(search.getTypeCode()));
+            }
             query.distinct(true);
             return cb.and(conditions.toArray(new Predicate[0]));
         };

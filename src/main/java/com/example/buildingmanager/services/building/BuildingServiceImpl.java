@@ -50,19 +50,22 @@ public class BuildingServiceImpl implements IBuildingService {
     }
 
     @Override
-    public List<BuildingSearchResponse> findAll(BuildingSearchDTO searchDTO) {
-        // [QUAN TRỌNG] Ép cứng điều kiện: Khách chỉ thấy tòa nhà ĐANG HOẠT ĐỘNG (Status
-        // = 1)
+    public Page<BuildingSearchResponse> findAll(BuildingSearchDTO searchDTO, Pageable pageable) {
+        // 1. Vẫn dùng logic cũ để lấy điều kiện lọc (spec)
+        // Dù bạn dùng BuildingSearchBuilder hay DTO ở trong hàm này thì kệ nó, không
+        // ảnh hưởng
         Specification<Building> spec = BuildingSpecification.build(searchDTO);
 
-        // Dùng Specification.where để tránh NullPointerException nếu spec ban đầu null
+        // Đảm bảo chỉ lấy status = 1
         spec = Specification.where(spec)
                 .and((root, query, cb) -> cb.equal(root.get("status"), 1));
 
-        List<Building> buildings = buildingRepository.findAll(spec);
-        return buildings.stream()
-                .map(buildingConverter::toResponseDTO)
-                .collect(Collectors.toList());
+        // 2. [QUAN TRỌNG] Truyền thêm 'pageable' vào hàm findAll của JPA
+        // Hàm này sẽ tự động cắt dữ liệu theo trang (LIMIT, OFFSET)
+        Page<Building> buildings = buildingRepository.findAll(spec, pageable);
+
+        // 3. Convert kết quả (Page<Entity> -> Page<DTO>)
+        return buildings.map(buildingConverter::toResponseDTO);
     }
 
     // =========================================================================

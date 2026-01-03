@@ -1,6 +1,6 @@
 package com.example.buildingmanager.models.auth;
 
-import lombok.AllArgsConstructor;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.util.List;

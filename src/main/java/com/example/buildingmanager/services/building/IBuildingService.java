@@ -8,11 +8,14 @@ import com.example.buildingmanager.models.user.BuildingSearchDTO;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 public interface IBuildingService {
     // --- KHÁCH HÀNG (Public) ---
     BuildingDetailResponse getBuildingById(Long id);
 
-    List<BuildingSearchResponse> findAll(BuildingSearchDTO searchDTO);
+    Page<BuildingSearchResponse> findAll(BuildingSearchDTO searchDTO, Pageable pageable);
 
     // --- ADMIN (Quản trị) ---
     // 1. Tìm kiếm (Dùng Builder của Admin)

@@ -7,6 +7,10 @@ import com.example.buildingmanager.models.building.BuildingDetailResponse; // DT
 import com.example.buildingmanager.models.user.BuildingSearchDTO; // DTO tìm kiếm của User
 import com.example.buildingmanager.services.building.IBuildingService;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,9 +34,11 @@ public class BuildingController {
      * Dùng BuildingSearchDTO để hỗ trợ tìm theo Quận, Giá, Diện tích...
      */
     @GetMapping
-    public ResponseEntity<List<BuildingSearchResponse>> searchBuildingsPublic(
-            @ModelAttribute BuildingSearchDTO searchDTO) {
-        List<BuildingSearchResponse> result = buildingService.findAll(searchDTO);
+    public ResponseEntity<Page<BuildingSearchResponse>> searchBuildingsPublic(
+            @ModelAttribute BuildingSearchDTO searchDTO,
+            // page = số trang (bắt đầu từ 0), size = số lượng item/trang
+            @PageableDefault(size = 6) Pageable pageable) {
+        Page<BuildingSearchResponse> result = buildingService.findAll(searchDTO, pageable);
         return ResponseEntity.ok(result);
     }
 

@@ -134,8 +134,11 @@ public class Building {
     @Column(name = "status")
     private Integer status;
 
-    @Column(name = "type")
-    private String type;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "building_renttype", // Tên bảng trung gian trong DB
+            joinColumns = @JoinColumn(name = "buildingid"), // Khóa ngoại 1
+            inverseJoinColumns = @JoinColumn(name = "renttypeid")) // Khóa ngoại 2
+    private List<Renttype> rentTypes = new ArrayList<>();
 
     // ==========================================================
     // RELATIONSHIPS
