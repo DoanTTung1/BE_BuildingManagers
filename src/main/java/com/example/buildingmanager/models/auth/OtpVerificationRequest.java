@@ -4,6 +4,6 @@ import lombok.Data;
 
 @Data
 public class OtpVerificationRequest {
-    private String userName;
+    private String username;
     private String otp;
 }

@@ -36,14 +36,14 @@ public class AuthServiceImpl implements IAuthService {
         @Override
         @Transactional
         public AuthResponse login(LoginRequest request) {
-                // Giữ nguyên logic cũ nhưng đảm bảo dùng request.getUserName()
+                // Giữ nguyên logic cũ nhưng đảm bảo dùng request.getUsername()
                 Authentication authentication = authenticationManager.authenticate(
-                                new UsernamePasswordAuthenticationToken(request.getUserName(), request.getPassword()));
+                                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 String jwt = tokenProvider.generateToken(authentication);
 
-                User userDetails = userRepository.findByUserNameAndStatus(request.getUserName(), 1)
+                User userDetails = userRepository.findByUserNameAndStatus(request.getUsername(), 1)
                                 .orElseThrow(() -> new RuntimeException("User không tồn tại hoặc đã bị khóa!"));
 
                 List<String> roles = userDetails.getRoles().stream()
@@ -56,14 +56,16 @@ public class AuthServiceImpl implements IAuthService {
         }
 
         @Override
-        // BỎ @Transactional ở đây để tránh nghẽn mạch Database
+        @Transactional // Gắn lại Transactional để đảm bảo tính toàn vẹn dữ liệu
         public AuthResponse register(RegisterRequest request) {
-                if (userRepository.existsByUserName(request.getUserName())) {
+                // 1. Kiểm tra trùng username
+                if (userRepository.existsByUserName(request.getUsername())) {
                         throw new RuntimeException("Lỗi: Username đã tồn tại!");
                 }
 
+                // 2. Tạo đối tượng User và map dữ liệu từ Request
                 User user = new User();
-                user.setUserName(request.getUserName());
+                user.setUserName(request.getUsername());
                 user.setPassword(passwordEncoder.encode(request.getPassword()));
                 user.setFullName(request.getFullName());
                 user.setEmail(request.getEmail());
@@ -71,29 +73,48 @@ public class AuthServiceImpl implements IAuthService {
                 user.setStatus(1);
                 user.setPhoneVerified(false);
 
+                // 3. Gán Role mặc định
                 Role userRole = roleRepository.findByCode("USER");
                 user.setRoles(new HashSet<>(Collections.singletonList(userRole)));
 
-                // Lưu User xong mới thực hiện các bước xác thực
+                // 4. Sinh mã OTP ngay lúc đăng ký để lưu vào DB luôn
+                String otp = String.valueOf((int) ((Math.random() * 900000) + 100000));
+                user.setOtpCode(otp);
+                user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
+
+                // 5. Lưu vào Database
                 User savedUser = userRepository.save(user);
 
+                // 6. In mã OTP ra Log Railway để bạn lấy mã xác thực
+                System.err.println("************************************************");
+                System.err.println("MÃ OTP ĐĂNG KÝ CỦA [" + request.getUsername() + "] LÀ: " + otp);
+                System.err.println("************************************************");
+
+                // 7. Sinh Token JWT để user đăng nhập luôn sau khi đăng ký thành công
+                // Lưu ý: Phần authenticate nên để sau khi đã save thành công
                 try {
-                        // Tự động đăng nhập
                         Authentication authentication = authenticationManager.authenticate(
-                                        new UsernamePasswordAuthenticationToken(request.getUserName(),
+                                        new UsernamePasswordAuthenticationToken(request.getUsername(),
                                                         request.getPassword()));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                         String jwt = tokenProvider.generateToken(authentication);
 
-                        return new AuthResponse(jwt, savedUser.getId(), savedUser.getUserName(),
-                                        savedUser.getFullName(), savedUser.getEmail(), savedUser.getPhone(),
-                                        null, Collections.singletonList("USER"), false);
+                        return new AuthResponse(
+                                        jwt,
+                                        savedUser.getId(),
+                                        savedUser.getUserName(),
+                                        savedUser.getFullName(),
+                                        savedUser.getEmail(),
+                                        savedUser.getPhone(),
+                                        null,
+                                        Collections.singletonList("USER"),
+                                        false);
                 } catch (Exception e) {
-                        // Nếu lỗi auto-login, vẫn trả về kết quả đăng ký thành công để user tự login
-                        // lại
+                        // Nếu lỗi xác thực tự động, vẫn trả về response nhưng ko có token
                         return new AuthResponse(null, savedUser.getId(), savedUser.getUserName(),
-                                        savedUser.getFullName(), savedUser.getEmail(), savedUser.getPhone(),
-                                        null, Collections.singletonList("USER"), false);
+                                        savedUser.getFullName(), savedUser.getEmail(),
+                                        savedUser.getPhone(), null,
+                                        Collections.singletonList("USER"), false);
                 }
         }
 

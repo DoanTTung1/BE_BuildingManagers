@@ -37,11 +37,11 @@ public class AuthController {
     }
 
     // 3. Gửi OTP
-    // SỬA: Chỉ định rõ "userName" để khớp với toàn bộ hệ thống của bạn
+    // SỬA: Chỉ định rõ "username" để khớp với toàn bộ hệ thống của bạn
     @PostMapping("/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestParam("userName") String userName) {
+    public ResponseEntity<?> sendOtp(@RequestParam("username") String username) {
         try {
-            authService.sendOtp(userName);
+            authService.sendOtp(username);
             return ResponseEntity.ok("Mã OTP đã được gửi!");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -52,9 +52,9 @@ public class AuthController {
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody OtpVerificationRequest request) {
         try {
-            // SỬA: Phải gọi .getUserName() (viết hoa N) để khớp với DTO
+            // SỬA: Phải gọi .getUsername() (viết hoa N) để khớp với DTO
             // OtpVerificationRequest
-            boolean isVerified = authService.verifyOtp(request.getUserName(), request.getOtp());
+            boolean isVerified = authService.verifyOtp(request.getUsername(), request.getOtp());
             if (isVerified) {
                 return ResponseEntity.ok("Xác thực thành công!");
             } else {
