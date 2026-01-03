@@ -14,6 +14,9 @@ import com.example.buildingmanager.repositories.BuildingRepository;
 import com.example.buildingmanager.repositories.UserRepository;
 import com.example.buildingmanager.specifications.BuildingSpecification;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
