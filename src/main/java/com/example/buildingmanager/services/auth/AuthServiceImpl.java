@@ -36,133 +36,102 @@ public class AuthServiceImpl implements IAuthService {
         @Override
         @Transactional
         public AuthResponse login(LoginRequest request) {
-                // 1. Xác thực Username/Password
+                // Giữ nguyên logic cũ nhưng đảm bảo dùng request.getUserName()
                 Authentication authentication = authenticationManager.authenticate(
-                                new UsernamePasswordAuthenticationToken(
-                                                request.getUserName(),
-                                                request.getPassword()));
+                                new UsernamePasswordAuthenticationToken(request.getUserName(), request.getPassword()));
 
-                // 2. Lưu context
                 SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                // 3. Sinh Token
                 String jwt = tokenProvider.generateToken(authentication);
 
-                // 4. Lấy thông tin User từ DB
                 User userDetails = userRepository.findByUserNameAndStatus(request.getUserName(), 1)
                                 .orElseThrow(() -> new RuntimeException("User không tồn tại hoặc đã bị khóa!"));
 
-                // 5. Lấy Roles
                 List<String> roles = userDetails.getRoles().stream()
                                 .map(Role::getCode)
                                 .collect(Collectors.toList());
 
-                // 6. Trả về AuthResponse (Có kèm trạng thái phoneVerified)
-                return new AuthResponse(
-                                jwt,
-                                userDetails.getId(),
-                                userDetails.getUserName(),
-                                userDetails.getFullName(), // <-- THÊM
-                                userDetails.getEmail(),
-                                userDetails.getPhone(), // <-- THÊM
-                                userDetails.getAvatar(), // <-- QUAN TRỌNG: Gửi link ảnh mới về
-                                roles,
-                                userDetails.isPhoneVerified());
+                return new AuthResponse(jwt, userDetails.getId(), userDetails.getUserName(),
+                                userDetails.getFullName(), userDetails.getEmail(), userDetails.getPhone(),
+                                userDetails.getAvatar(), roles, userDetails.isPhoneVerified());
         }
 
         @Override
-        @Transactional
+        // BỎ @Transactional ở đây để tránh nghẽn mạch Database
         public AuthResponse register(RegisterRequest request) {
-                // 1. Kiểm tra trùng
                 if (userRepository.existsByUserName(request.getUserName())) {
                         throw new RuntimeException("Lỗi: Username đã tồn tại!");
                 }
 
-                // 2. Tạo User mới
                 User user = new User();
                 user.setUserName(request.getUserName());
                 user.setPassword(passwordEncoder.encode(request.getPassword()));
                 user.setFullName(request.getFullName());
                 user.setEmail(request.getEmail());
                 user.setPhone(request.getPhone());
-                user.setStatus(1); // Mặc định kích hoạt
-
-                // Mặc định đăng ký xong là CHƯA xác thực
+                user.setStatus(1);
                 user.setPhoneVerified(false);
 
-                // 3. Gán Role mặc định là USER
                 Role userRole = roleRepository.findByCode("USER");
-                if (userRole == null) {
-                        throw new RuntimeException("Lỗi: Chưa có Role USER trong hệ thống!");
-                }
                 user.setRoles(new HashSet<>(Collections.singletonList(userRole)));
 
-                // 4. Lưu vào DB
+                // Lưu User xong mới thực hiện các bước xác thực
                 User savedUser = userRepository.save(user);
 
-                // 5. Tự động đăng nhập (Auto Login)
-                Authentication authentication = authenticationManager.authenticate(
-                                new UsernamePasswordAuthenticationToken(
-                                                request.getUserName(),
-                                                request.getPassword()));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                try {
+                        // Tự động đăng nhập
+                        Authentication authentication = authenticationManager.authenticate(
+                                        new UsernamePasswordAuthenticationToken(request.getUserName(),
+                                                        request.getPassword()));
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        String jwt = tokenProvider.generateToken(authentication);
 
-                // Sinh token
-                String jwt = tokenProvider.generateToken(authentication);
-
-                // 6. Trả về
-                return new AuthResponse(
-                                jwt,
-                                savedUser.getId(),
-                                savedUser.getUserName(),
-                                savedUser.getFullName(), // <-- THÊM
-                                savedUser.getEmail(),
-                                savedUser.getPhone(), // <-- THÊM
-                                null, // Avatar lúc đăng ký thường là null
-                                Collections.singletonList("USER"),
-                                false);
+                        return new AuthResponse(jwt, savedUser.getId(), savedUser.getUserName(),
+                                        savedUser.getFullName(), savedUser.getEmail(), savedUser.getPhone(),
+                                        null, Collections.singletonList("USER"), false);
+                } catch (Exception e) {
+                        // Nếu lỗi auto-login, vẫn trả về kết quả đăng ký thành công để user tự login
+                        // lại
+                        return new AuthResponse(null, savedUser.getId(), savedUser.getUserName(),
+                                        savedUser.getFullName(), savedUser.getEmail(), savedUser.getPhone(),
+                                        null, Collections.singletonList("USER"), false);
+                }
         }
 
-        // --- CÁC HÀM XỬ LÝ OTP (BỔ SUNG) ---
+        // --- CÁC HÀM XỬ LÝ OTP ---
 
         @Override
-        public void sendOtp(String username) {
-                User user = userRepository.findByUserNameAndStatus(username, 1)
+        @Transactional
+        public void sendOtp(String userName) { // Đổi thành userName cho đồng bộ
+                User user = userRepository.findByUserNameAndStatus(userName, 1)
                                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
-                // 1. Tạo mã OTP ngẫu nhiên 6 chữ số
                 String otp = String.valueOf((int) ((Math.random() * 900000) + 100000));
-
-                // 2. Lưu OTP và thời gian hết hạn (5 phút) vào DB
                 user.setOtpCode(otp);
                 user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
                 userRepository.save(user);
 
-                // 3. Giả lập gửi tin nhắn (In ra console để test)
-                // Trong thực tế, bạn sẽ gọi API của Twilio/eSMS/Viettel tại đây
-                System.out.println("============================================");
-                System.out.println(">>> OTP GỬI ĐẾN SỐ " + user.getPhone() + ": " + otp);
-                System.out.println("============================================");
+                // Dùng System.err để mã hiện màu đỏ/nổi bật trong Logs Railway
+                System.err.println("************************************************");
+                System.err.println(">>> MÃ OTP CỦA [" + userName + "] LÀ: " + otp);
+                System.err.println("************************************************");
         }
 
         @Override
-        public boolean verifyOtp(String username, String otpInput) {
-                User user = userRepository.findByUserNameAndStatus(username, 1)
+        @Transactional
+        public boolean verifyOtp(String userName, String otpInput) { // Đổi thành userName
+                User user = userRepository.findByUserNameAndStatus(userName, 1)
                                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
-                // 1. Kiểm tra mã OTP có khớp không
                 if (user.getOtpCode() == null || !user.getOtpCode().equals(otpInput)) {
                         throw new RuntimeException("Mã OTP không chính xác!");
                 }
 
-                // 2. Kiểm tra thời hạn
                 if (user.getOtpExpiry().isBefore(LocalDateTime.now())) {
-                        throw new RuntimeException("Mã OTP đã hết hạn! Vui lòng lấy mã mới.");
+                        throw new RuntimeException("Mã OTP đã hết hạn!");
                 }
 
-                // 3. Nếu đúng hết -> Update trạng thái đã xác thực
                 user.setPhoneVerified(true);
-                user.setOtpCode(null); // Xóa OTP cũ để không dùng lại được
+                user.setOtpCode(null);
                 user.setOtpExpiry(null);
                 userRepository.save(user);
 

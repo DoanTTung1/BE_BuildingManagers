@@ -2,7 +2,7 @@ package com.example.buildingmanager.controllers.auth;
 
 import com.example.buildingmanager.models.auth.LoginRequest;
 import com.example.buildingmanager.models.auth.RegisterRequest;
-import com.example.buildingmanager.models.auth.OtpVerificationRequest; // Nhớ tạo file này (xem bên dưới)
+import com.example.buildingmanager.models.auth.OtpVerificationRequest;
 import com.example.buildingmanager.services.auth.IAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,31 +29,32 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
+            // Lưu ý: Trong AuthServiceImpl, hãy đảm bảo hàm này không bị nghẽn Transaction
             return ResponseEntity.ok(authService.register(request));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // --- BỔ SUNG 2 API CHO OTP ---
-
-    // 3. Gửi OTP (Frontend gọi cái này khi bấm nút "Gửi lại mã" hoặc khi vừa vào
-    // Modal)
+    // 3. Gửi OTP
+    // SỬA: Chỉ định rõ "userName" để khớp với toàn bộ hệ thống của bạn
     @PostMapping("/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestParam String username) {
+    public ResponseEntity<?> sendOtp(@RequestParam("userName") String userName) {
         try {
-            authService.sendOtp(username);
-            return ResponseEntity.ok("Mã OTP đã được gửi đến số điện thoại!");
+            authService.sendOtp(userName);
+            return ResponseEntity.ok("Mã OTP đã được gửi!");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    // 4. Xác thực OTP (Frontend gọi cái này khi bấm "Xác nhận")
+    // 4. Xác thực OTP
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(@RequestBody OtpVerificationRequest request) {
         try {
-            boolean isVerified = authService.verifyOtp(request.getUsername(), request.getOtp());
+            // SỬA: Phải gọi .getUserName() (viết hoa N) để khớp với DTO
+            // OtpVerificationRequest
+            boolean isVerified = authService.verifyOtp(request.getUserName(), request.getOtp());
             if (isVerified) {
                 return ResponseEntity.ok("Xác thực thành công!");
             } else {
