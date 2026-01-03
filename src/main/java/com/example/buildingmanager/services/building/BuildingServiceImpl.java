@@ -42,19 +42,24 @@ public class BuildingServiceImpl implements IBuildingService {
         Building building = buildingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà ID: " + id));
 
-        // Convert Entity -> Detail Response
+        // Optional: Chặn khách xem nếu tin chưa duyệt/đã xóa
+        // if (building.getStatus() != 1) throw new RuntimeException("Tin không khả
+        // dụng");
+
         return buildingConverter.toDetailResponse(building);
     }
 
     @Override
     public List<BuildingSearchResponse> findAll(BuildingSearchDTO searchDTO) {
-        // 1. Tạo điều kiện tìm kiếm (Specification)
+        // [QUAN TRỌNG] Ép cứng điều kiện: Khách chỉ thấy tòa nhà ĐANG HOẠT ĐỘNG (Status
+        // = 1)
         Specification<Building> spec = BuildingSpecification.build(searchDTO);
 
-        // 2. Query Database
-        List<Building> buildings = buildingRepository.findAll(spec);
+        // Dùng Specification.where để tránh NullPointerException nếu spec ban đầu null
+        spec = Specification.where(spec)
+                .and((root, query, cb) -> cb.equal(root.get("status"), 1));
 
-        // 3. Convert Entity -> Response
+        List<Building> buildings = buildingRepository.findAll(spec);
         return buildings.stream()
                 .map(buildingConverter::toResponseDTO)
                 .collect(Collectors.toList());
@@ -85,36 +90,39 @@ public class BuildingServiceImpl implements IBuildingService {
         // 1. Convert DTO -> Entity
         Building building = buildingConverter.toEntity(dto);
 
-        // 2. LẤY THÔNG TIN NGƯỜI DÙNG HIỆN TẠI (QUAN TRỌNG)
-        String currentUsername = "";
+        // 2. LẤY THÔNG TIN NGƯỜI DÙNG HIỆN TẠI
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        building.setCreatedBy(currentUsername);
+
+        // --- LOGIC XÉT DUYỆT ---
+        int buildingStatus = 2; // Mặc định: CHỜ DUYỆT (User đăng)
+
         try {
-            // Lấy username từ Token đang đăng nhập
-            currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
-
-            // --- FIX LỖI: GÁN NGƯỜI TẠO VÀO ENTITY ---
-            building.setCreatedBy(currentUsername);
-            // -----------------------------------------
-
-            // Tự động điền Tên quản lý / SĐT quản lý nếu người dùng bỏ trống
             User currentUser = userRepository.findByUserNameAndStatus(currentUsername, 1).orElse(null);
+
             if (currentUser != null) {
+                // Tự động điền thông tin quản lý
                 if (building.getManagerName() == null || building.getManagerName().isEmpty()) {
                     building.setManagerName(currentUser.getFullName());
                 }
-                // Nếu muốn tự điền SĐT thì bỏ comment dòng dưới:
-                // if (building.getManagerPhone() == null ||
-                // building.getManagerPhone().isEmpty()) {
-                // building.setManagerPhone(currentUser.getPhone());
-                // }
+                if (building.getManagerPhoneNumber() == null || building.getManagerPhoneNumber().isEmpty()) {
+                    building.setManagerPhoneNumber(currentUser.getPhone());
+                }
+
+                // KIỂM TRA QUYỀN ADMIN
+                boolean isAdmin = currentUser.getRoles().stream()
+                        .anyMatch(role -> role.getCode().equals("ADMIN"));
+
+                if (isAdmin) {
+                    buildingStatus = 1; // Admin đăng -> Active luôn
+                }
             }
         } catch (Exception e) {
-            System.out.println("Lỗi khi lấy thông tin user: " + e.getMessage());
+            System.out.println("Lỗi lấy user info: " + e.getMessage());
         }
 
-        // 3. Set trạng thái mặc định (1 = Hoạt động)
-        building.setStatus(1);
-
-        // 4. Lưu xuống Database
+        // 3. Set trạng thái & Lưu
+        building.setStatus(buildingStatus);
         Building savedBuilding = buildingRepository.save(building);
 
         return buildingConverter.toDTO(savedBuilding);
@@ -122,14 +130,10 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Override
     public UpdateAndCreateBuildingDTO updateBuilding(UpdateAndCreateBuildingDTO dto) {
-        // 1. Tìm tòa nhà cũ
         Building building = buildingRepository.findById(dto.getId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà để sửa!"));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà!"));
 
-        // 2. Update thông tin từ DTO vào Entity cũ
         buildingConverter.updateEntity(dto, building);
-
-        // 3. Lưu lại
         Building savedBuilding = buildingRepository.save(building);
         return buildingConverter.toDTO(savedBuilding);
     }
@@ -138,8 +142,7 @@ public class BuildingServiceImpl implements IBuildingService {
     public void softDeleteBuilding(Long id) {
         Building building = buildingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà!"));
-
-        building.setStatus(0); // 0 = Đã xóa mềm / Tạm ẩn
+        building.setStatus(0); // 0 = Đã xóa mềm
         buildingRepository.save(building);
     }
 
@@ -156,16 +159,13 @@ public class BuildingServiceImpl implements IBuildingService {
         Building building = buildingRepository.findById(buildingId)
                 .orElseThrow(() -> new RuntimeException("Tòa nhà không tồn tại!"));
 
-        // 1. Xóa phân công cũ
         assignmentBuildingRepository.deleteByBuilding_Id(buildingId);
 
-        // 2. Tạo phân công mới nếu có danh sách nhân viên
         if (staffIds != null && !staffIds.isEmpty()) {
             List<AssignmentBuilding> assignments = new ArrayList<>();
             for (Long staffId : staffIds) {
                 User staff = userRepository.findById(staffId)
                         .orElseThrow(() -> new RuntimeException("Nhân viên ID " + staffId + " không tồn tại!"));
-
                 AssignmentBuilding assignment = new AssignmentBuilding();
                 assignment.setBuilding(building);
                 assignment.setStaff(staff);
@@ -177,11 +177,12 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Override
     public List<BuildingSearchResponse> getMyBuildings(String username) {
-        // 1. Tìm tòa nhà theo cột created_by trong Database
         List<Building> buildings = buildingRepository.findByCreatedBy(username);
 
-        // 2. Convert sang Response để hiển thị ở Frontend
+        // [QUAN TRỌNG] Lọc bỏ các bài đã xóa mềm (status = 0)
+        // User vẫn được thấy bài đang chờ duyệt (status = 2)
         return buildings.stream()
+                .filter(b -> b.getStatus() != 0)
                 .map(buildingConverter::toResponseDTO)
                 .collect(Collectors.toList());
     }

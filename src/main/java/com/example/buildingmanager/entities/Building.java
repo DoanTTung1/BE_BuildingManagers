@@ -134,6 +134,9 @@ public class Building {
     @Column(name = "status")
     private Integer status;
 
+    @Column(name = "type")
+    private String type;
+
     // ==========================================================
     // RELATIONSHIPS
     // ==========================================================
