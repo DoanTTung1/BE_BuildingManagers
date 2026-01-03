@@ -62,10 +62,12 @@ public class AuthServiceImpl implements IAuthService {
                                 jwt,
                                 userDetails.getId(),
                                 userDetails.getUserName(),
+                                userDetails.getFullName(), // <-- THÊM
                                 userDetails.getEmail(),
+                                userDetails.getPhone(), // <-- THÊM
+                                userDetails.getAvatar(), // <-- QUAN TRỌNG: Gửi link ảnh mới về
                                 roles,
-                                userDetails.isPhoneVerified() // Trả về true/false thực tế từ DB
-                );
+                                userDetails.isPhoneVerified());
         }
 
         @Override
@@ -113,10 +115,12 @@ public class AuthServiceImpl implements IAuthService {
                                 jwt,
                                 savedUser.getId(),
                                 savedUser.getUserName(),
+                                savedUser.getFullName(), // <-- THÊM
                                 savedUser.getEmail(),
+                                savedUser.getPhone(), // <-- THÊM
+                                null, // Avatar lúc đăng ký thường là null
                                 Collections.singletonList("USER"),
-                                false // Mới đăng ký thì chắc chắn chưa xác thực
-                );
+                                false);
         }
 
         // --- CÁC HÀM XỬ LÝ OTP (BỔ SUNG) ---
