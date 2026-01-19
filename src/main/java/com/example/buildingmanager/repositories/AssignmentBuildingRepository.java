@@ -2,12 +2,15 @@ package com.example.buildingmanager.repositories;
 
 import com.example.buildingmanager.entities.AssignmentBuilding;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 public interface AssignmentBuildingRepository extends JpaRepository<AssignmentBuilding, Long> {
-    
-    // Hàm xóa tất cả phân công của 1 tòa nhà (Dùng để reset trước khi giao mới)
-    // @Transactional và @Modifying bắt buộc phải có khi dùng delete/update custom
+
+    // ✅ CÁCH TỐI ƯU: Xóa 1 lần bằng SQL thuần (Bulk Delete)
+    @Modifying
     @Transactional
+    @Query("DELETE FROM AssignmentBuilding ab WHERE ab.building.id = :buildingId")
     void deleteByBuilding_Id(Long buildingId);
 }

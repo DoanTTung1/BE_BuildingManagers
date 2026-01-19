@@ -77,8 +77,29 @@ public class BuildingServiceImpl implements IBuildingService {
 
     @Override
     public List<BuildingSearchResponse> findAll(BuildingSearchBuilder builder) {
+        // 1. Tạo điều kiện tìm kiếm cơ bản
         Specification<Building> spec = BuildingSpecification.build(builder);
+
+        // 👇 SỬA LẠI LOGIC CHỖ NÀY:
+        // Kiểm tra xem Frontend có gửi yêu cầu lọc theo status cụ thể không?
+        // (Giả sử trong BuildingSearchBuilder bạn đã có trường 'status')
+
+        if (builder.getStatus() != null) {
+            // TRƯỜNG HỢP 1: Frontend muốn xem "Thùng rác" (gửi status = 0)
+            // Hoặc muốn xem tin chờ duyệt (gửi status = 2)
+            spec = Specification.where(spec)
+                    .and((root, query, cb) -> cb.equal(root.get("status"), builder.getStatus()));
+        } else {
+            // TRƯỜNG HỢP 2: Frontend không nói gì (Mặc định)
+            // -> Thì vẫn giữ logic cũ: Chỉ ẩn thằng status 0 đi
+            spec = Specification.where(spec)
+                    .and((root, query, cb) -> cb.notEqual(root.get("status"), 0));
+        }
+
+        // 2. Query database
         List<Building> buildings = buildingRepository.findAll(spec);
+
+        // 3. Convert sang DTO
         return buildings.stream()
                 .map(buildingConverter::toResponseDTO)
                 .collect(Collectors.toList());
@@ -157,6 +178,7 @@ public class BuildingServiceImpl implements IBuildingService {
         if (!buildingRepository.existsById(id)) {
             throw new RuntimeException("Không tìm thấy tòa nhà!");
         }
+        assignmentBuildingRepository.deleteByBuilding_Id(id);
         buildingRepository.deleteById(id);
     }
 
@@ -191,5 +213,19 @@ public class BuildingServiceImpl implements IBuildingService {
                 .filter(b -> b.getStatus() != 0)
                 .map(buildingConverter::toResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    public List<BuildingSearchResponse> findAllDeleted() {
+        // Chỉ lấy status = 0
+        List<Building> buildings = buildingRepository.findAll((root, query, cb) -> cb.equal(root.get("status"), 0));
+        return buildings.stream().map(buildingConverter::toResponseDTO).collect(Collectors.toList());
+    }
+
+    @Override
+    public void restoreBuilding(Long id) {
+        Building building = buildingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà!"));
+        building.setStatus(1); // 1 = Active lại
+        buildingRepository.save(building);
     }
 }

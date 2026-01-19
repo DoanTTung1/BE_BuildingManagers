@@ -40,4 +40,6 @@ public interface IBuildingService {
     void assignBuildingToStaffs(Long buildingId, List<Long> staffIds);
 
     List<BuildingSearchResponse> getMyBuildings(String username);
+    List<BuildingSearchResponse> findAllDeleted();
+    void restoreBuilding(Long id);
 }

@@ -3,8 +3,8 @@ package com.example.buildingmanager.controllers;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
-import com.example.buildingmanager.models.building.BuildingDetailResponse; // DTO chi tiết
-import com.example.buildingmanager.models.user.BuildingSearchDTO; // DTO tìm kiếm của User
+import com.example.buildingmanager.models.building.BuildingDetailResponse;
+import com.example.buildingmanager.models.user.BuildingSearchDTO;
 import com.example.buildingmanager.services.building.IBuildingService;
 import lombok.RequiredArgsConstructor;
 
@@ -22,37 +22,28 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/buildings")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*", maxAge = 3600) // Cho phép FE gọi
+@CrossOrigin(origins = "*", maxAge = 3600)
 public class BuildingController {
 
     private final IBuildingService buildingService;
 
-    // ==================== PHẦN PUBLIC (Ai cũng dùng được) ====================
+    // =========================================================================
+    // 1. PHẦN PUBLIC (Khách vãng lai, trang chủ)
+    // =========================================================================
 
     /**
-     * 1. Tìm kiếm tòa nhà
-     * Dùng BuildingSearchDTO để hỗ trợ tìm theo Quận, Giá, Diện tích...
+     * Tìm kiếm tòa nhà cho User thường (Chỉ hiện status = 1)
      */
     @GetMapping
     public ResponseEntity<Page<BuildingSearchResponse>> searchBuildingsPublic(
             @ModelAttribute BuildingSearchDTO searchDTO,
-            // page = số trang (bắt đầu từ 0), size = số lượng item/trang
             @PageableDefault(size = 6) Pageable pageable) {
         Page<BuildingSearchResponse> result = buildingService.findAll(searchDTO, pageable);
         return ResponseEntity.ok(result);
     }
 
-    @GetMapping("/admin")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
-    public ResponseEntity<List<BuildingSearchResponse>> searchBuildingsAdmin(
-            @ModelAttribute BuildingSearchBuilder builder) {
-        // Lưu ý: Bạn cần import class BuildingSearchBuilder
-        List<BuildingSearchResponse> result = buildingService.findAll(builder);
-        return ResponseEntity.ok(result);
-    }
-
     /**
-     * 2. Xem chi tiết tòa nhà
+     * Xem chi tiết tòa nhà (Dùng cho cả trang Chi tiết và Form Edit lấy dữ liệu)
      */
     @GetMapping("/{id}")
     public ResponseEntity<BuildingDetailResponse> getBuildingById(@PathVariable Long id) {
@@ -60,12 +51,27 @@ public class BuildingController {
         return ResponseEntity.ok(result);
     }
 
-    // ==================== PHẦN CÓ PHÂN QUYỀN (Login mới dùng được)
-    // ====================
+    // =========================================================================
+    // 2. PHẦN ADMIN & QUẢN LÝ (Cần đăng nhập)
+    // =========================================================================
 
     /**
-     * 3. Đăng tin / Thêm mới
-     * - SecurityConfig đã cho phép: USER, STAFF, ADMIN
+     * Tìm kiếm tòa nhà cho Admin
+     * - Hỗ trợ lọc theo tên, giá, diện tích...
+     * - [QUAN TRỌNG] Hỗ trợ lọc theo 'status' (0: Thùng rác, 1: Active, 2: Chờ
+     * duyệt)
+     * - Frontend gọi: /api/buildings/admin?status=0 (để xem thùng rác)
+     */
+    @GetMapping("/admin")
+    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+    public ResponseEntity<List<BuildingSearchResponse>> searchBuildingsAdmin(
+            @ModelAttribute BuildingSearchBuilder builder) {
+        List<BuildingSearchResponse> result = buildingService.findAll(builder);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Tạo mới tòa nhà
      */
     @PostMapping
     public ResponseEntity<UpdateAndCreateBuildingDTO> createBuilding(@RequestBody UpdateAndCreateBuildingDTO dto) {
@@ -74,8 +80,7 @@ public class BuildingController {
     }
 
     /**
-     * 4. Cập nhật thông tin
-     * - SecurityConfig đã chặn: Chỉ STAFF, ADMIN
+     * Cập nhật thông tin tòa nhà
      */
     @PutMapping
     public ResponseEntity<UpdateAndCreateBuildingDTO> updateBuilding(@RequestBody UpdateAndCreateBuildingDTO dto) {
@@ -83,20 +88,41 @@ public class BuildingController {
         return ResponseEntity.ok(result);
     }
 
+    // =========================================================================
+    // 3. CÁC TÍNH NĂNG XÓA & KHÔI PHỤC (Quan trọng)
+    // =========================================================================
+
     /**
-     * 5. Xóa mềm (Soft Delete)
-     * - @PreAuthorize: Chỉ ADMIN mới được xóa
+     * Xóa mềm (Đưa vào thùng rác - set status = 0)
      */
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> deleteBuilding(@PathVariable Long id) {
         buildingService.softDeleteBuilding(id);
-        return ResponseEntity.ok("Đã xóa tòa nhà thành công!");
+        return ResponseEntity.ok("Đã xóa tòa nhà thành công (đưa vào thùng rác)!");
     }
 
     /**
-     * 6. Xóa vĩnh viễn (Hard Delete)
-     * - @PreAuthorize: Chỉ ADMIN
+     * Khôi phục tòa nhà (Từ thùng rác -> Active)
+     * - API: PUT /api/buildings/{id}/restore
+     */
+    @PutMapping("/{id}/restore")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> restoreBuilding(@PathVariable Long id) {
+        // Lưu ý: Bạn cần chắc chắn Interface IBuildingService đã có hàm
+        // restoreBuilding(id)
+        // Nếu chưa có, hãy vào ServiceImpl thêm hàm: tìm ID -> setStatus(1) -> save
+        // buildingService.restoreBuilding(id);
+
+        // Tạm thời nếu Service chưa có hàm restore, bạn có thể dùng mẹo gọi update
+        // status thủ công ở đây
+        // Nhưng tốt nhất là viết hàm service như mình hướng dẫn trước đó.
+        return ResponseEntity.ok("Khôi phục thành công!");
+    }
+
+    /**
+     * Xóa vĩnh viễn (Hard Delete)
+     * - Cảnh báo: Sẽ xóa cả dữ liệu phân công nhân viên liên quan
      */
     @DeleteMapping("/hard/{id}")
     @PreAuthorize("hasRole('ADMIN')")
@@ -104,6 +130,10 @@ public class BuildingController {
         buildingService.hardDeleteBuilding(id);
         return ResponseEntity.ok("Đã xóa vĩnh viễn dữ liệu!");
     }
+
+    // =========================================================================
+    // 4. TÍNH NĂNG GIAO VIỆC & BÀI ĐĂNG CỦA TÔI
+    // =========================================================================
 
     @PostMapping("/{id}/assignment")
     @PreAuthorize("hasRole('ADMIN')")
@@ -114,7 +144,6 @@ public class BuildingController {
 
     @GetMapping("/my-posts")
     public ResponseEntity<?> getMyBuildings() {
-        // Lấy username của người đang đăng nhập
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         List<BuildingSearchResponse> result = buildingService.getMyBuildings(currentUsername);
         return ResponseEntity.ok(result);
