@@ -82,8 +82,9 @@ public class BuildingController {
     /**
      * Cập nhật thông tin tòa nhà
      */
-    @PutMapping
+    @PutMapping("/{id}")
     public ResponseEntity<UpdateAndCreateBuildingDTO> updateBuilding(@RequestBody UpdateAndCreateBuildingDTO dto) {
+        dto.setId(id);
         UpdateAndCreateBuildingDTO result = buildingService.updateBuilding(dto);
         return ResponseEntity.ok(result);
     }

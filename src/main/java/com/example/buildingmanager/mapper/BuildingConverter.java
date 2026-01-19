@@ -157,7 +157,7 @@ public class BuildingConverter {
                 .map(dto.getMap())
                 .managerName(dto.getManagerName())
                 .managerPhoneNumber(dto.getManagerPhoneNumber())
-                .avatar(dto.getAvatar())
+                .avatar(dto.getImage())
                 .build();
 
         // --- XỬ LÝ ALBUM ẢNH (Code cũ của bạn) ---
@@ -223,7 +223,7 @@ public class BuildingConverter {
                 // .image(entity.getImage()) --> XÓA
                 .managerName(entity.getManagerName())
                 .managerPhoneNumber(entity.getManagerPhoneNumber())
-                .avatar(entity.getAvatar())
+                .image(entity.getAvatar())
                 .imageList(imgList) // Set list ảnh vào DTO
                 .build();
     }
@@ -262,7 +262,7 @@ public class BuildingConverter {
         // entity.setImage(dto.getImage()); --> XÓA
         entity.setManagerName(dto.getManagerName());
         entity.setManagerPhoneNumber(dto.getManagerPhoneNumber());
-        entity.setAvatar(dto.getAvatar());
+        entity.setAvatar(dto.getImage());
 
         // --- XỬ LÝ UPDATE ALBUM ẢNH ---
         // Logic: Xóa cũ -> Thêm mới (Hoặc để Service xử lý việc xóa, ở đây chỉ tạo list
