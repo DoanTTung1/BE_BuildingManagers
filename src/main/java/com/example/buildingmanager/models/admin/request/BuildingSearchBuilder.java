@@ -12,8 +12,7 @@ public class BuildingSearchBuilder {
     private String name;
     private Integer floorArea;
 
-    // 👇 SỬA LẠI DÒNG NÀY: Dùng String để chứa mã quận (VD: "QUAN_1")
-    private String district;
+    private Long districtId;
 
     private String ward;
     private String street;
