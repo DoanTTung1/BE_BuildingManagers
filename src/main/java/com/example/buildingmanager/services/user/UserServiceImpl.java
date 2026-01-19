@@ -27,98 +27,116 @@ public class UserServiceImpl implements IUserService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final UserConverter userConverter; // Sử dụng cái này thay vì viết hàm convert tay
-
-    // Service Upload ảnh
+    private final UserConverter userConverter;
     private final IStorageService storageService;
 
+    // 👇 1. SỬA: Hàm này thay thế getAllUsers cũ để hỗ trợ lọc
     @Override
-    public List<UserDTO> getAllUsers() {
-        // Sử dụng userConverter để đảm bảo Avatar và OTP được map đúng
-        return userRepository.findAll().stream()
-                .map(userConverter::toUserDTO)
-                .collect(Collectors.toList());
+    public List<UserDTO> getUsersByStatus(Integer status) {
+        List<User> users;
+        if (status != null) {
+            // Nếu FE gửi status (VD: 0 -> Thùng rác)
+            users = userRepository.findByStatus(status);
+        } else {
+            // Nếu không gửi -> Lấy tất cả trừ thùng rác (Active)
+            users = userRepository.findByStatusNot(0);
+        }
+        return users.stream().map(userConverter::toUserDTO).collect(Collectors.toList());
     }
 
     @Override
     public List<UserDTO> getAllStaffs() {
-        List<User> staffs = userRepository.findByRoles_CodeAndStatus("STAFF", 1);
-        return staffs.stream()
+        return userRepository.findByRoles_CodeAndStatus("STAFF", 1).stream()
                 .map(userConverter::toUserDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     public UserDTO createStaff(UserDTO dto) {
-        // 1. Check trùng tên đăng nhập
-        if (userRepository.existsByUserName(dto.getUsername())) { // DTO dùng username (chữ thường)
+        if (userRepository.existsByUserName(dto.getUsername())) {
             throw new RuntimeException("Tên đăng nhập đã tồn tại!");
         }
+        if (userRepository.existsByEmail(dto.getEmail())) {
+            throw new RuntimeException("Email này đã được sử dụng!");
+        }
 
-        // 2. Map dữ liệu cơ bản (Dùng ModelMapper hoặc Converter đều được)
-        // Lưu ý: Nếu dùng Converter.toEntity thì phải set lại password bên dưới
         User user = new User();
         user.setUserName(dto.getUsername());
         user.setFullName(dto.getFullName());
         user.setEmail(dto.getEmail());
         user.setPhone(dto.getPhone());
+        user.setStatus(1); // Active
 
-        // 3. XỬ LÝ MẬT KHẨU
         if (dto.getPassword() != null && !dto.getPassword().isEmpty()) {
             user.setPassword(passwordEncoder.encode(dto.getPassword()));
         } else {
             user.setPassword(passwordEncoder.encode("123456"));
         }
 
-        // 4. Set Status Active
-        user.setStatus(1);
-
-        // 5. XỬ LÝ ROLE
         Set<Role> roles = new HashSet<>();
-        // SỬA: DTO dùng 'roles' chứ không phải 'roleCodes'
         if (dto.getRoles() != null && !dto.getRoles().isEmpty()) {
             for (String code : dto.getRoles()) {
                 Role role = roleRepository.findByCode(code);
-                if (role != null) {
+                if (role != null)
                     roles.add(role);
-                } else {
-                    throw new RuntimeException("Không tìm thấy quyền: " + code);
-                }
             }
         } else {
-            // Mặc định là STAFF nếu không gửi quyền
             Role defaultRole = roleRepository.findByCode("STAFF");
             if (defaultRole != null)
                 roles.add(defaultRole);
         }
         user.setRoles(roles);
 
-        User savedUser = userRepository.save(user);
-        return userConverter.toUserDTO(savedUser);
+        return userConverter.toUserDTO(userRepository.save(user));
     }
 
+    // 👇 2. Xóa mềm (Soft Delete)
     @Override
     public void deleteUser(Long id) {
-        User user = userRepository.findById(id).orElseThrow(() -> new RuntimeException("User không tồn tại"));
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
         user.setStatus(0);
+        userRepository.save(user);
+    }
+
+    // 👇 3. BỔ SUNG: Xóa cứng (Hard Delete)
+    @Override
+    public void hardDeleteUser(Long id) {
+        if (!userRepository.existsById(id)) {
+            throw new RuntimeException("User không tồn tại");
+        }
+        // Lưu ý: Nếu user này có liên quan đến các bảng khác (VD: đang quản lý tòa
+        // nhà),
+        // bạn cần xóa liên kết đó trước khi deleteById để tránh lỗi Foreign Key.
+        userRepository.deleteById(id);
+    }
+
+    // 👇 4. BỔ SUNG: Khôi phục (Restore)
+    @Override
+    public void restoreUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User không tồn tại"));
+        user.setStatus(1); // Active lại
         userRepository.save(user);
     }
 
     @Override
     public UserDTO updateProfile(String currentUsername, UserUpdateRequest request) {
-        // 1. Tìm user hiện tại
         User user = userRepository.findByUserNameAndStatus(currentUsername, 1)
                 .orElseThrow(() -> new RuntimeException("User không tồn tại"));
 
-        // 2. Cập nhật thông tin cơ bản
         if (request.getFullName() != null && !request.getFullName().isEmpty()) {
             user.setFullName(request.getFullName());
         }
-        if (request.getEmail() != null && !request.getEmail().isEmpty()) {
+
+        if (request.getEmail() != null && !request.getEmail().isEmpty()
+                && !request.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(request.getEmail())) {
+                throw new RuntimeException("Email này đã được sử dụng!");
+            }
             user.setEmail(request.getEmail());
         }
 
-        // Cập nhật Username (Check trùng)
         if (request.getUsername() != null && !request.getUsername().isEmpty()
                 && !request.getUsername().equals(user.getUserName())) {
             if (userRepository.existsByUserName(request.getUsername())) {
@@ -127,32 +145,28 @@ public class UserServiceImpl implements IUserService {
             user.setUserName(request.getUsername());
         }
 
-        // Cập nhật SĐT
         if (request.getPhone() != null && !request.getPhone().isEmpty()) {
             user.setPhone(request.getPhone());
-            // user.setPhoneVerified(false); // Nếu muốn logic chặt chẽ: đổi SĐT xong phải
-            // xác thực lại
         }
 
-        // 3. XỬ LÝ UPLOAD ẢNH
+        // Logic đổi mật khẩu
+        if (request.getNewPassword() != null && !request.getNewPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        }
+
+        // Upload ảnh
         if (request.getAvatarFile() != null && !request.getAvatarFile().isEmpty()) {
             try {
-                // Xóa ảnh cũ trên Cloudinary nếu có (để tiết kiệm dung lượng)
                 if (user.getAvatar() != null && user.getAvatar().startsWith("http")) {
                     storageService.deleteFile(user.getAvatar());
                 }
-
-                // Upload ảnh mới
                 String avatarUrl = storageService.storeFile(request.getAvatarFile());
                 user.setAvatar(avatarUrl);
-
             } catch (Exception e) {
-                throw new RuntimeException("Lỗi khi upload ảnh: " + e.getMessage());
+                throw new RuntimeException("Lỗi upload ảnh: " + e.getMessage());
             }
         }
 
-        // 4. Lưu và trả về
-        User savedUser = userRepository.save(user);
-        return userConverter.toUserDTO(savedUser);
+        return userConverter.toUserDTO(userRepository.save(user));
     }
 }

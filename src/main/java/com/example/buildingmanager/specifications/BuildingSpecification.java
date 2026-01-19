@@ -1,10 +1,6 @@
 package com.example.buildingmanager.specifications;
 
-import com.example.buildingmanager.entities.AssignmentBuilding;
-import com.example.buildingmanager.entities.Building;
-import com.example.buildingmanager.entities.Rentarea;
-import com.example.buildingmanager.entities.Renttype;
-import com.example.buildingmanager.entities.User;
+import com.example.buildingmanager.entities.*;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.user.BuildingSearchDTO;
 import jakarta.persistence.criteria.*;
@@ -16,76 +12,179 @@ import java.util.List;
 
 public class BuildingSpecification {
 
-    // 1. ADMIN (Giữ nguyên)
+    // =========================================================================
+    // 1. ADMIN SEARCH (Full quyền + lọc thùng rác)
+    // =========================================================================
     public static Specification<Building> build(BuildingSearchBuilder search) {
-        return (root, query, cb) -> cb.conjunction();
-    }
 
-    // 2. USER (SỬA PHẦN NÀY)
-    public static Specification<Building> build(BuildingSearchDTO search) {
         return (root, query, cb) -> {
             List<Predicate> conditions = new ArrayList<>();
-            if (search == null)
+
+            if (search == null) {
                 return cb.conjunction();
+            }
+
+            // --- 1. TÊN TÒA NHÀ ---
+            if (StringUtils.hasText(search.getName())) {
+                conditions.add(
+                        cb.like(
+                                cb.lower(root.get("name")),
+                                "%" + search.getName().trim().toLowerCase() + "%"));
+            }
+
+            // --- 2. DIỆN TÍCH SÀN ---
+            if (search.getFloorArea() != null) {
+                conditions.add(
+                        cb.greaterThanOrEqualTo(root.get("floorArea"), search.getFloorArea()));
+            }
+
+            // --- 3. QUẬN (JOIN District -> so sánh CODE) ---
+            if (StringUtils.hasText(search.getDistrict())) {
+                Join<Building, District> districtJoin = root.join("district", JoinType.INNER);
+
+                conditions.add(
+                        cb.equal(districtJoin.get("code"), search.getDistrict()));
+            }
+
+            // --- 4. GIÁ THUÊ ---
+            if (search.getRentPriceFrom() != null) {
+                conditions.add(
+                        cb.greaterThanOrEqualTo(root.get("rentPrice"), search.getRentPriceFrom()));
+            }
+            if (search.getRentPriceTo() != null) {
+                conditions.add(
+                        cb.lessThanOrEqualTo(root.get("rentPrice"), search.getRentPriceTo()));
+            }
+
+            // --- 5. NHÂN VIÊN PHỤ TRÁCH ---
+            if (search.getStaffId() != null) {
+                Join<Building, AssignmentBuilding> assignmentJoin = root.join("assignmentBuildings", JoinType.INNER);
+
+                conditions.add(
+                        cb.equal(
+                                assignmentJoin.get("staff").get("id"),
+                                search.getStaffId()));
+            }
+
+            // --- 6. LOẠI TÒA NHÀ ---
+            if (search.getTypeCode() != null && !search.getTypeCode().isEmpty()) {
+                Join<Building, Renttype> rentTypeJoin = root.join("rentTypes", JoinType.INNER);
+
+                conditions.add(
+                        rentTypeJoin.get("code").in(search.getTypeCode()));
+            }
+
+            // --- 7. STATUS ---
+            // status = 0 : thùng rác
+            if (search.getStatus() != null) {
+                conditions.add(
+                        cb.equal(root.get("status"), search.getStatus()));
+            } else {
+                // Mặc định admin KHÔNG xem bản ghi đã xóa
+                conditions.add(
+                        cb.notEqual(root.get("status"), 0));
+            }
+
+            query.distinct(true);
+            return cb.and(conditions.toArray(new Predicate[0]));
+        };
+    }
+
+    // =========================================================================
+    // 2. USER SEARCH (Công khai – chỉ xem ACTIVE)
+    // =========================================================================
+    public static Specification<Building> build(BuildingSearchDTO search) {
+
+        return (root, query, cb) -> {
+            List<Predicate> conditions = new ArrayList<>();
+
+            if (search == null) {
+                return cb.conjunction();
+            }
 
             // --- 1. TÊN ---
             if (StringUtils.hasText(search.getName())) {
-                conditions.add(cb.like(cb.lower(root.get("name")), "%" + search.getName().trim().toLowerCase() + "%"));
+                conditions.add(
+                        cb.like(
+                                cb.lower(root.get("name")),
+                                "%" + search.getName().trim().toLowerCase() + "%"));
             }
 
-            // --- 2. SÀN ---
+            // --- 2. DIỆN TÍCH SÀN ---
             if (search.getFloorArea() != null) {
-                conditions.add(cb.greaterThanOrEqualTo(root.get("floorArea"), search.getFloorArea()));
+                conditions.add(
+                        cb.greaterThanOrEqualTo(root.get("floorArea"), search.getFloorArea()));
             }
 
-            // --- 3. [SỬA LẠI] QUẬN (QUAN TRỌNG) ---
-            // Frontend gửi "QUAN_1". Ta phải join vào District và so sánh cột CODE.
-            // Dùng 'equal' thay vì 'like' để chính xác tuyệt đối (tránh tìm QUAN_1 ra
-            // QUAN_10)
+            // --- 3. QUẬN ---
             if (StringUtils.hasText(search.getDistrict())) {
-                // Giả sử Building có quan hệ @ManyToOne với District
-                // Và District có field 'code'
-                conditions.add(cb.equal(root.get("district").get("code"), search.getDistrict()));
+                Join<Building, District> districtJoin = root.join("district", JoinType.INNER);
+
+                conditions.add(
+                        cb.equal(districtJoin.get("code"), search.getDistrict()));
             }
 
             // --- 4. DIỆN TÍCH THUÊ ---
             if (search.getAreaFrom() != null || search.getAreaTo() != null) {
                 Join<Building, Rentarea> rentAreaJoin = root.join("rentAreas", JoinType.INNER);
-                if (search.getAreaFrom() != null)
-                    conditions.add(cb.greaterThanOrEqualTo(rentAreaJoin.get("value"), search.getAreaFrom()));
-                if (search.getAreaTo() != null)
-                    conditions.add(cb.lessThanOrEqualTo(rentAreaJoin.get("value"), search.getAreaTo()));
+
+                if (search.getAreaFrom() != null) {
+                    conditions.add(
+                            cb.greaterThanOrEqualTo(
+                                    rentAreaJoin.get("value"),
+                                    search.getAreaFrom()));
+                }
+
+                if (search.getAreaTo() != null) {
+                    conditions.add(
+                            cb.lessThanOrEqualTo(
+                                    rentAreaJoin.get("value"),
+                                    search.getAreaTo()));
+                }
             }
 
             // --- 5. GIÁ ---
-            if (search.getRentPriceFrom() != null)
-                conditions.add(cb.greaterThanOrEqualTo(root.get("rentPrice"), search.getRentPriceFrom()));
-            if (search.getRentPriceTo() != null)
-                conditions.add(cb.lessThanOrEqualTo(root.get("rentPrice"), search.getRentPriceTo()));
+            if (search.getRentPriceFrom() != null) {
+                conditions.add(
+                        cb.greaterThanOrEqualTo(root.get("rentPrice"), search.getRentPriceFrom()));
+            }
+
+            if (search.getRentPriceTo() != null) {
+                conditions.add(
+                        cb.lessThanOrEqualTo(root.get("rentPrice"), search.getRentPriceTo()));
+            }
 
             // --- 6. QUẢN LÝ ---
             if (StringUtils.hasText(search.getManagerName())) {
                 conditions.add(
-                        cb.like(cb.lower(root.get("managerName")), "%" + search.getManagerName().toLowerCase() + "%"));
+                        cb.like(
+                                cb.lower(root.get("managerName")),
+                                "%" + search.getManagerName().toLowerCase() + "%"));
             }
 
             // --- 7. NHÂN VIÊN ---
             if (StringUtils.hasText(search.getStaffName())) {
                 Join<Building, AssignmentBuilding> assignmentJoin = root.join("assignmentBuildings", JoinType.INNER);
+
                 Join<AssignmentBuilding, User> staffJoin = assignmentJoin.join("staff", JoinType.INNER);
+
                 conditions.add(
-                        cb.like(cb.lower(staffJoin.get("fullName")), "%" + search.getStaffName().toLowerCase() + "%"));
+                        cb.like(
+                                cb.lower(staffJoin.get("fullName")),
+                                "%" + search.getStaffName().toLowerCase() + "%"));
             }
 
             // --- 8. LOẠI TÒA NHÀ ---
             if (search.getTypeCode() != null && !search.getTypeCode().isEmpty()) {
-                // 1. Join trực tiếp từ Building sang Renttype
-                Join<Building, Renttype> typeJoin = root.join("rentTypes");
+                Join<Building, Renttype> rentTypeJoin = root.join("rentTypes", JoinType.INNER);
 
-                // 2. Tìm các tòa nhà có code nằm trong danh sách gửi lên
-                // query.distinct(true) là bắt buộc để tránh ra trùng lặp kết quả
-                conditions.add(typeJoin.get("code").in(search.getTypeCode()));
+                conditions.add(
+                        rentTypeJoin.get("code").in(search.getTypeCode()));
             }
+
+            // --- 9. USER chỉ xem ACTIVE ---
+            conditions.add(cb.equal(root.get("status"), 1));
+
             query.distinct(true);
             return cb.and(conditions.toArray(new Predicate[0]));
         };

@@ -11,7 +11,10 @@ public class BuildingSearchBuilder {
     // --- Tiêu chí tìm kiếm cơ bản ---
     private String name;
     private Integer floorArea;
-    private Long districtId;
+
+    // 👇 SỬA LẠI DÒNG NÀY: Dùng String để chứa mã quận (VD: "QUAN_1")
+    private String district;
+
     private String ward;
     private String street;
     private Integer numberOfBasement;
@@ -27,10 +30,9 @@ public class BuildingSearchBuilder {
     private Integer areaTo;
 
     // --- Tiêu chí liên kết ---
-    private Long staffId;           // Tìm theo nhân viên phụ trách
-    private List<String> typeCode;  // Tìm theo loại tòa nhà (Checkbox)
+    private Long staffId; // Tìm theo ID nhân viên (Long là đúng)
+    private List<String> typeCode; // Tìm theo list mã loại (String là đúng)
 
     // --- Tiêu chí Admin ---
-    // status = null (tìm hết), status = 1 (tìm đang active)
     private Integer status;
 }

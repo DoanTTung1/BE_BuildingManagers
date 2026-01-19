@@ -6,9 +6,22 @@ import com.example.buildingmanager.models.user.UserUpdateRequest;
 import java.util.List;
 
 public interface IUserService {
-    List<UserDTO> getAllUsers();           // Lấy tất cả user
-    List<UserDTO> getAllStaffs();          // Chỉ lấy nhân viên (để hiện checkbox giao việc)
-    UserDTO createStaff(UserDTO userDTO);  // Tạo nhân viên mới
-    void deleteUser(Long id);              // Xóa user
-    UserDTO updateProfile(String currentUsername, UserUpdateRequest request); // Cập nhật profile
+
+    // 👇 1. SỬA: Thay hàm getAllUsers cũ bằng hàm này để hỗ trợ lọc Active/Thùng
+    // rác
+    List<UserDTO> getUsersByStatus(Integer status);
+
+    List<UserDTO> getAllStaffs(); // Lấy nhân viên (để giao việc)
+
+    UserDTO createStaff(UserDTO userDTO); // Tạo mới
+
+    void deleteUser(Long id); // Xóa mềm (Soft Delete)
+
+    // 👇 2. MỚI: Xóa vĩnh viễn (Hard Delete)
+    void hardDeleteUser(Long id);
+
+    // 👇 3. MỚI: Khôi phục (Restore từ thùng rác)
+    void restoreUser(Long id);
+
+    UserDTO updateProfile(String currentUsername, UserUpdateRequest request); // Cập nhật Profile
 }
