@@ -1,5 +1,7 @@
 package com.example.buildingmanager.services.admin.total;
 
-public class IStatisticService {
-    
+import com.example.buildingmanager.models.admin.response.DashboardResponse;
+
+public interface IStatisticService {
+    DashboardResponse getDashboardStatistics();
 }
