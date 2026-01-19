@@ -83,7 +83,8 @@ public class BuildingController {
      * Cập nhật thông tin tòa nhà
      */
     @PutMapping("/{id}")
-    public ResponseEntity<UpdateAndCreateBuildingDTO> updateBuilding(@PathVariable Long id,@RequestBody UpdateAndCreateBuildingDTO dto) {
+    public ResponseEntity<UpdateAndCreateBuildingDTO> updateBuilding(@PathVariable Long id,
+            @RequestBody UpdateAndCreateBuildingDTO dto) {
         dto.setId(id);
         UpdateAndCreateBuildingDTO result = buildingService.updateBuilding(dto);
         return ResponseEntity.ok(result);
@@ -110,14 +111,9 @@ public class BuildingController {
     @PutMapping("/{id}/restore")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> restoreBuilding(@PathVariable Long id) {
-        // Lưu ý: Bạn cần chắc chắn Interface IBuildingService đã có hàm
-        // restoreBuilding(id)
-        // Nếu chưa có, hãy vào ServiceImpl thêm hàm: tìm ID -> setStatus(1) -> save
-        // buildingService.restoreBuilding(id);
+        // 👇 GỌI HÀM SERVICE (Bỏ comment dòng này đi)
+        buildingService.restoreBuilding(id);
 
-        // Tạm thời nếu Service chưa có hàm restore, bạn có thể dùng mẹo gọi update
-        // status thủ công ở đây
-        // Nhưng tốt nhất là viết hàm service như mình hướng dẫn trước đó.
         return ResponseEntity.ok("Khôi phục thành công!");
     }
 
