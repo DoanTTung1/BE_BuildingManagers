@@ -76,6 +76,16 @@ public class BuildingServiceImpl implements IBuildingService {
     // =========================================================================
 
     @Override
+    public void approveBuilding(Long id) {
+        Building building = buildingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Tòa nhà không tồn tại"));
+        if (building.getStatus() == 2) {
+            building.setStatus(1);
+            buildingRepository.save(building);
+        }
+    }
+
+    @Override
     public List<BuildingSearchResponse> findAll(BuildingSearchBuilder builder) {
         // 1. Tạo điều kiện tìm kiếm cơ bản
         Specification<Building> spec = BuildingSpecification.build(builder);

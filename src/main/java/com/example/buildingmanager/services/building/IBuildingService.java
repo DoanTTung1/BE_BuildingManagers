@@ -42,4 +42,5 @@ public interface IBuildingService {
     List<BuildingSearchResponse> getMyBuildings(String username);
     List<BuildingSearchResponse> findAllDeleted();
     void restoreBuilding(Long id);
+    void approveBuilding(Long id);
 }

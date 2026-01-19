@@ -148,4 +148,15 @@ public class BuildingController {
         List<BuildingSearchResponse> result = buildingService.getMyBuildings(currentUsername);
         return ResponseEntity.ok(result);
     }
+
+    // Duyệt tòa nhà (chuyển status từ 2 -> 1)
+    @PutMapping("/{id}/approve")
+    public ResponseEntity<BuildingSearchResponse> approveBuilding(@PathVariable Long id) {
+        // 1. Gọi service để đổi status từ 2 sang 1
+        buildingService.approveBuilding(id);
+
+        // 2. Trả về thông tin tòa nhà sau khi đã duyệt (để frontend cập nhật UI)
+        BuildingSearchResponse updatedBuilding = buildingService.findById(id);
+        return ResponseEntity.ok(updatedBuilding);
+    }
 }
