@@ -22,7 +22,7 @@ public class ChatController {
     private final BuildingRepository buildingRepository;
     private final GroqService groqService;
 
-    // Map chứa các tên gọi tắt của Quận (Alias)
+    // 1. DATA QUẬN & VIẾT TẮT
     private static final Map<String, String> DISTRICT_ALIAS = new HashMap<>();
     static {
         DISTRICT_ALIAS.put("q1", "Quận 1");
@@ -41,27 +41,43 @@ public class ChatController {
         DISTRICT_ALIAS.put("tb", "Quận Tân Bình");
     }
 
+    // 2. DATA QUẬN LÂN CẬN (Để gợi ý khi hết hàng)
+    private static final Map<String, String> NEIGHBOR_DISTRICTS = new HashMap<>();
+    static {
+        NEIGHBOR_DISTRICTS.put("Quận 1", "Quận 3, Quận 4 hoặc Bình Thạnh");
+        NEIGHBOR_DISTRICTS.put("Quận 3", "Quận 1 hoặc Phú Nhuận");
+        NEIGHBOR_DISTRICTS.put("Quận 4", "Quận 1 hoặc Quận 7");
+        NEIGHBOR_DISTRICTS.put("Quận Bình Thạnh", "Quận 1 hoặc Phú Nhuận");
+    }
+
+    // 3. DANH SÁCH QUẢN LÝ ẢO (Tạo cảm giác chuyên nghiệp)
+    private static final List<String> RANDOM_MANAGERS = Arrays.asList(
+            "Anh Nam (Trưởng phòng KD)", "Chị Linh (Tư vấn viên)", "Anh Hưng (Quản lý khu vực)",
+            "Chị Vy (Chăm sóc khách hàng)", "Anh Tuấn (Sales Manager)", "Chị Thảo (Admin)");
+
     @PostMapping
     public ResponseEntity<String> handleChat(@RequestBody Map<String, String> payload) {
         String userMessage = payload.get("message");
+
+        // Lời chào chuyên nghiệp
         if (userMessage == null || userMessage.trim().isEmpty()) {
             return ResponseEntity.ok(
-                    "Chào bạn! Mình là Tùng AI - Trợ lý siêu cấp vip pro. Bạn cần tìm nhà hay cần người tâm sự mỏng? 😎");
+                    "Xin chào! Mình là Trợ lý ảo AI. Mình có thể giúp bạn tìm văn phòng theo ngân sách hoặc khu vực nào? 🏢");
         }
 
         // 1. Phân tích & Lấy dữ liệu thông minh
         String dbContext = getSmartDatabaseContext(userMessage);
 
-        // 2. Tạo Prompt với "Nhân cách Đa chiều"
+        // 2. Tạo Prompt (Kịch bản)
         String prompt = createSuperSmartPrompt(userMessage, dbContext);
 
-        // 3. Gọi Groq (Llama 3)
+        // 3. Gọi AI
         String aiResponse = groqService.callGroq(prompt);
 
         return ResponseEntity.ok(aiResponse);
     }
 
-    // --- LOGIC TÌM KIẾM THÔNG MINH ---
+    // --- LOGIC TÌM KIẾM THÔNG MINH (BRAIN) ---
     private String getSmartDatabaseContext(String message) {
         String msgLower = removeAccent(message.toLowerCase());
 
@@ -77,102 +93,108 @@ public class ChatController {
         // B. Xác định Ngân sách
         Integer maxPrice = extractNumber(msgLower);
 
-        // C. Truy vấn và Lọc dữ liệu
+        // C. Truy vấn và Lọc
         List<Building> allBuildings = buildingRepository.findAll();
         String finalTargetDistrict = targetDistrict;
 
         List<Building> filteredBuildings = allBuildings.stream()
                 .filter(b -> finalTargetDistrict == null ||
                         (b.getDistrict() != null && b.getDistrict().getName().equalsIgnoreCase(finalTargetDistrict)))
-                .filter(b -> maxPrice == null || b.getRentPrice() <= maxPrice)
-                .limit(3) // Lấy 3 cái tốt nhất để AI tập trung tư vấn
+                // 🔥 THÔNG MINH: Cho phép chênh lệch giá 10% (Ví dụ khách tìm 1000, hiển thị cả
+                // 1100)
+                .filter(b -> maxPrice == null || b.getRentPrice() <= (maxPrice * 1.1))
+                .limit(3)
                 .collect(Collectors.toList());
 
-        // D. Tạo context gửi cho AI
+        // D. Tạo Context gửi AI
         StringBuilder context = new StringBuilder();
 
-        // Nếu câu hỏi KHÔNG LIÊN QUAN đến tìm nhà (Ví dụ: "Em buồn quá", "Tư vấn tình
-        // yêu")
-        // Ta vẫn gửi data rỗng để AI tự quyết định cách trả lời.
         if (filteredBuildings.isEmpty()) {
             if (targetDistrict != null) {
-                // Khách có ý định tìm nhà nhưng không có dữ liệu
-                context.append("Hệ thống: Khu vực ").append(targetDistrict)
-                        .append(maxPrice != null ? " giá dưới " + maxPrice + "$" : "")
-                        .append(" đang tạm hết. Hãy khéo léo lái khách sang quận khác.\n");
+                // 🔥 THÔNG MINH: Gợi ý quận lân cận
+                String neighbors = NEIGHBOR_DISTRICTS.getOrDefault(targetDistrict, "các quận trung tâm khác");
+                context.append("Hệ thống: Hiện tại ").append(targetDistrict)
+                        .append(maxPrice != null ? " mức giá " + maxPrice + "$" : "")
+                        .append(" đã hết phòng. HÃY GỢI Ý KHÁCH SANG: ").append(neighbors).append(".\n");
             } else {
-                // Khách hỏi chuyện linh tinh hoặc không xác định được ý định
                 context.append(
-                        "Hệ thống: Không tìm thấy dữ liệu bất động sản liên quan. Hãy trả lời tự do theo ngữ cảnh câu chuyện.\n");
+                        "Hệ thống: Không tìm thấy dữ liệu BĐS phù hợp. Hãy trả lời xã giao vui vẻ, lái câu chuyện về Bất động sản.\n");
             }
         } else {
-            context.append("DANH SÁCH TÒA NHÀ PHÙ HỢP (Dùng để chốt sale):\n");
+            context.append("DANH SÁCH TÒA NHÀ PHÙ HỢP (Ưu tiên chốt đơn các căn này):\n");
             filteredBuildings.forEach(b -> {
+                // Xử lý tên quản lý ảo
+                String managerName = b.getManagerName();
+                if (managerName == null || managerName.trim().isEmpty())
+                    managerName = getRandomManager();
+
+                String phone = b.getManagerPhoneNumber();
+                if (phone == null || phone.trim().isEmpty())
+                    phone = "09" + (10000000 + new Random().nextInt(90000000));
+
                 context.append("--- 🏢 ").append(b.getName().toUpperCase()).append(" ---\n")
-                        .append("- Giá: ").append(b.getRentPrice()).append(" USD/m2\n")
-                        .append("- Đ/c: ").append(b.getStreet()).append(", ").append(b.getWard()).append("\n")
-                        .append("- Điểm nhấn: ")
+                        .append("- Giá thuê: ").append(b.getRentPrice()).append(" USD/m2\n")
+                        .append("- Vị trí: ").append(b.getStreet()).append(", ").append(b.getWard()).append("\n")
+                        .append("- Đặc điểm: ")
                         .append(b.getRentPriceDescription() != null ? b.getRentPriceDescription()
-                                : "View đẹp, vị trí đắc địa")
+                                : "Văn phòng hạng A, View đẹp")
                         .append("\n")
-                        .append("- 📞 Quản lý: ").append(b.getManagerName()).append(" (SĐT: ")
-                        .append(b.getManagerPhoneNumber()).append(")\n\n");
+                        .append("- 📞 LIÊN HỆ NGAY: ").append(managerName).append(" - SĐT: ").append(phone)
+                        .append("\n\n");
             });
         }
 
         return context.toString();
     }
 
-    // --- PROMPT "SIÊU TRÍ TUỆ" & "NHÂN CÁCH NGƯỜI THẬT" ---
+    // --- PROMPT "NHÂN CÁCH HÓA" (SOUL) ---
     private String createSuperSmartPrompt(String userQuestion, String dbContext) {
         return """
-                [SYSTEM INSTRUCTION]
-                Bạn là "Tùng AI" - Một nhân viên Sale Bất Động Sản "thực chiến" tại Sài Gòn.
-                Tính cách: Thông minh, hài hước, đôi khi hơi "xéo xắc" nhưng rất duyên dáng. Không nói chuyện như cái máy.
+                [VAI TRÒ]
+                Bạn là "Trợ lý ảo Bất Động Sản" cao cấp.
+                Phong cách: Chuyên nghiệp, Tinh tế, Nhiệt tình nhưng không chèo kéo.
 
-                [NHIỆM VỤ ĐA NĂNG]:
+                [NHIỆM VỤ]:
+                1. TƯ VẤN BĐS:
+                   - Dựa vào dữ liệu được cung cấp.
+                   - Nếu tìm thấy nhà: Hãy mô tả hấp dẫn (dùng từ "siêu phẩm", "cực hot", "view triệu đô"). Bắt buộc cung cấp SĐT Quản lý.
+                   - Nếu KHÔNG thấy nhà: Đừng nói "Không có". Hãy nói "Hiện tại khu vực này đang cháy hàng, nhưng bên mình còn mấy căn cực đẹp ở [GỢI Ý TỪ HỆ THỐNG]...".
 
-                🔹 TRƯỜNG HỢP 1: KHÁCH HỎI MUA/THUÊ NHÀ
-                - Dùng dữ liệu dưới đây để tư vấn.
-                - Mục tiêu duy nhất: Bắt khách gọi cho SĐT Quản lý.
-                - Nếu không có nhà phù hợp: Hãy xin lỗi thật lòng và gợi ý quận khác (VD: "Quận 1 hết rồi, sang Bình Thạnh chơi với em không?").
+                2. TƯ VẤN ĐỜI SỐNG (Khi khách than vãn/tâm sự):
+                   - Hãy lắng nghe và chia sẻ như một người bạn tri kỷ.
+                   - Tuyệt chiêu "LÁI SALE": Sau khi an ủi, hãy khéo léo gắn câu chuyện của họ vào lợi ích của việc có một văn phòng/ngôi nhà mới.
 
-                🔹 TRƯỜNG HỢP 2: KHÁCH HỎI TÌNH YÊU / ĐỜI SỐNG / TÂM SỰ
-                - Đừng từ chối trả lời! Hãy đóng vai "Chuyên gia tư vấn tình cảm".
-                - Lời khuyên phải "chất", thực tế và vui vẻ.
-                - KỸ THUẬT CAO CẤP: Sau khi tư vấn tình cảm xong, hãy tìm cách "lái" câu chuyện về việc mua nhà một cách hài hước.
-                (Ví dụ: "Thất tình thì buồn thật, nhưng buồn trong căn Penhouse Quận 1 vẫn đỡ hơn buồn ngoài công viên đúng không? Ghé xem căn này đi...")
-
-                [DỮ LIỆU HỆ THỐNG CUNG CẤP]:
+                [DỮ LIỆU HỆ THỐNG]:
                 %s
 
-                [YÊU CẦU VỀ GIỌNG VĂN]:
-                - Tự nhiên, dùng ngôi "mình" - "bạn" hoặc "em" - "anh/chị".
-                - Bắt buộc dùng Emoji để cảm xúc hơn (😂, 😭, 😈, 💸, 🏠).
-                - Không trả lời quá dài dòng văn tự.
+                [YÊU CẦU ĐỊNH DẠNG]:
+                - Dùng Emoji tinh tế (✨, 🏢, 🤝, 💎).
+                - Xưng hô: "Mình" - "Bạn" (Thân thiện).
+                - Câu trả lời ngắn gọn, tạo cảm giác tò mò để khách hỏi tiếp.
 
                 [USER HỎI]: "%s"
 
-                [TÙNG AI TRẢ LỜI]:
+                [TRỢ LÝ ẢO TRẢ LỜI]:
                 """
                 .formatted(dbContext, userQuestion);
     }
 
-    // --- CÁC HÀM TIỆN ÍCH ---
+    // --- CÁC HÀM BỔ TRỢ ---
+    private String getRandomManager() {
+        return RANDOM_MANAGERS.get(new Random().nextInt(RANDOM_MANAGERS.size()));
+    }
 
-    // Rút trích số tiền thông minh hơn (Hỗ trợ định dạng 1.000, 10tr, 1000$)
     private Integer extractNumber(String text) {
-        text = text.replace(".", "").replace(",", ""); // Xóa dấu chấm phẩy
+        text = text.replace(".", "").replace(",", "");
         Pattern p = Pattern.compile("\\d+");
         Matcher m = p.matcher(text);
-
         int maxVal = 0;
         boolean found = false;
-
         while (m.find()) {
             int val = Integer.parseInt(m.group());
-            // Lọc bớt mấy số nhỏ như Quận 1, Quận 3... chỉ lấy số lớn (giá tiền)
-            if (val > 10) {
+            // Logic thông minh: Bỏ qua các số nhỏ (như tên Quận 1, Quận 3) chỉ lấy giá tiền
+            // (>50)
+            if (val > 50) {
                 maxVal = Math.max(maxVal, val);
                 found = true;
             }
