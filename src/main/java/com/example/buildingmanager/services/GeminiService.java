@@ -6,6 +6,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.Collections;
@@ -26,10 +27,11 @@ public class GeminiService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public String callGemini(String prompt) {
-        // 1. URL đầy đủ kèm Key
+        // 1. URL + Key
         String finalUrl = apiUrl + "?key=" + apiKey;
 
-        // 2. Tạo Body JSON gửi đi (Cấu trúc bắt buộc của Google Gemini API)
+        // 2. Body JSON chuẩn Google
+        // { "contents": [{ "parts": [{ "text": "..." }] }] }
         Map<String, Object> contentPart = new HashMap<>();
         contentPart.put("text", prompt);
 
@@ -43,20 +45,23 @@ public class GeminiService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        // 4. Gửi Request POST
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
         try {
+            // 4. Gọi API
             Map response = restTemplate.postForObject(finalUrl, entity, Map.class);
-            // 5. Lấy câu trả lời từ JSON trả về
             return extractTextFromResponse(response);
+            
+        } catch (HttpClientErrorException e) {
+            // In lỗi chi tiết ra Console để debug nếu Google từ chối
+            System.err.println("🔴 LỖI GEMINI: " + e.getResponseBodyAsString());
+            return "Lỗi kết nối AI: " + e.getStatusText();
         } catch (Exception e) {
             e.printStackTrace();
-            return "Xin lỗi, kết nối đến AI đang gặp sự cố. Bạn vui lòng thử lại sau nhé!";
+            return "Hệ thống đang bận, vui lòng thử lại sau.";
         }
     }
 
-    // Hàm bóc tách dữ liệu JSON lồng nhau của Google để lấy đúng đoạn text trả lời
     private String extractTextFromResponse(Map response) {
         try {
             List candidates = (List) response.get("candidates");
@@ -69,9 +74,9 @@ public class GeminiService {
                     return (String) firstPart.get("text");
                 }
             }
-            return "Không có phản hồi từ AI.";
+            return "AI không phản hồi.";
         } catch (Exception e) {
-            return "Lỗi đọc dữ liệu từ AI.";
+            return "Lỗi đọc dữ liệu.";
         }
     }
 }
