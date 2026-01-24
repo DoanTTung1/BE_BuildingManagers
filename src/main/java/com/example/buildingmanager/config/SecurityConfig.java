@@ -53,7 +53,7 @@ public class SecurityConfig {
                         .requestMatchers("/images/**", "/css/**", "/js/**").permitAll() // File tĩnh
                         .requestMatchers("/error").permitAll() // Cho phép trang lỗi mặc định
                         .requestMatchers("/api/users/profile/update").authenticated()
-
+                        .requestMatchers("/api/chat").permitAll()
                         // Chỉ cho phép GET danh sách và chi tiết (Khách xem nhà)
                         .requestMatchers(HttpMethod.GET, "/api/buildings", "/api/buildings/{id}").permitAll()
 
