@@ -11,7 +11,7 @@ public class BuildingSearchDTO {
     // Các tiêu chí user nhập vào để tìm kiếm
     private String name; // Tên tòa nhà
     private Long floorArea; // Diện tích sàn (ví dụ tìm diện tích lớn hơn số này)
-    private String district; // Quận
+    private Long districtId; // Quận
     private Long rentPriceFrom; // Giá thuê từ...
     private Long rentPriceTo; // ...đến giá thuê
     private String managerName; // Tìm theo tên quản lý
