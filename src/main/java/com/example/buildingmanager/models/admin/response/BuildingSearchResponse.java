@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.io.Serializable;
+
 @Builder
 @Getter
 @Setter
@@ -14,7 +15,7 @@ public class BuildingSearchResponse implements Serializable {
 
     // Địa chỉ đã gộp: "59 Phan Xích Long, Phường 2, Quận Phú Nhuận"
     private String address;
-
+    private String transactionType; // Giá trị: "RENT" hoặc "SALE"
     private Integer numberOfBasement;
     private String managerName;
     private String managerPhone;

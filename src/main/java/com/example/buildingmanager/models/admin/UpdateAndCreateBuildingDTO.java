@@ -46,7 +46,7 @@ public class UpdateAndCreateBuildingDTO {
 
     private String managerName;
     private String managerPhoneNumber;
-
+    private String transactionType;
     private String rentArea;
     private List<String> typeCode;
     private List<String> imageList;

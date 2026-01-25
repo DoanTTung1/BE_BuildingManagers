@@ -11,8 +11,6 @@ import com.example.buildingmanager.models.building.BuildingDetailResponse;
 import com.example.buildingmanager.repositories.RenttypeRepository;
 
 import lombok.RequiredArgsConstructor;
-
-
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -30,7 +28,6 @@ public class BuildingConverter {
         String address = e.getStreet() + ", " + e.getWard() + ", " + districName;
         String rentAreaResult = "";
 
-        // Logic nối chuỗi diện tích thuê (100, 200 m2)
         if (e.getRentAreas() != null && !e.getRentAreas().isEmpty()) {
             rentAreaResult = e.getRentAreas().stream()
                     .map(item -> item.getValue().toString())
@@ -48,18 +45,21 @@ public class BuildingConverter {
                 .floorArea(e.getFloorArea())
                 .rentPrice(e.getRentPrice())
                 .serviceFee(e.getServiceFee())
-                .avatar(e.getAvatar()) // Chỉ lấy ảnh đại diện
+                .avatar(e.getAvatar())
                 .brokerageFee((e.getBrokerageFee() != null ? e.getBrokerageFee().toString() : ""))
+                .transactionType(e.getTransactionType())
                 .build();
     }
 
-    // --- 2. Dùng cho KHÁCH HÀNG (Xem chi tiết - Detail) ---
+    // --- 2. Dùng cho KHÁCH HÀNG (Detail) ---
     public BuildingDetailResponse toDetailResponse(Building e) {
         BuildingDetailResponse dto = new BuildingDetailResponse();
         dto.setId(e.getId());
         dto.setName(e.getName());
 
-        // Xử lý Quận và Địa chỉ
+        // 🔥 THÊM DÒNG NÀY: Trả về loại giao dịch cho khách biết
+        dto.setTransactionType(e.getTransactionType());
+
         String districtName = "";
         if (e.getDistrict() != null) {
             districtName = e.getDistrict().getName();
@@ -67,7 +67,6 @@ public class BuildingConverter {
         dto.setDistrictName(districtName);
         dto.setAddress(e.getStreet() + ", " + e.getWard() + ", " + districtName);
 
-        // Map các trường thông tin
         dto.setStructure(e.getStructure());
         dto.setNumberOfBasement(e.getNumberOfBasement());
         dto.setFloorArea(e.getFloorArea());
@@ -89,26 +88,19 @@ public class BuildingConverter {
         dto.setNote(e.getNote());
         dto.setLinkOfBuilding(e.getLinkOfBuilding());
         dto.setMap(e.getMap());
-
         dto.setImage(e.getAvatar());
-        // (Nếu DTO detail có trường avatar thì set, không thì thôi)
 
-        // Lấy danh sách Album ảnh trả về cho khách xem
         List<String> albumImages = new ArrayList<>();
         if (e.getBuildingImages() != null) {
             albumImages = e.getBuildingImages().stream()
-                    .map(BuildingImage::getLink) // Lấy đường dẫn link
+                    .map(BuildingImage::getLink)
                     .collect(Collectors.toList());
         }
-        // Lưu ý: Bạn cần thêm field `private List<String> imageList;` vào
-        // BuildingDetailResponse
         dto.setImageList(albumImages);
 
-        // Thông tin quản lý
         dto.setManagerName(e.getManagerName());
         dto.setManagerPhoneNumber(e.getManagerPhoneNumber());
 
-        // Xử lý RentArea hiển thị
         List<Rentarea> rentAreas = e.getRentAreas();
         if (rentAreas != null && !rentAreas.isEmpty()) {
             String areaString = rentAreas.stream()
@@ -128,7 +120,6 @@ public class BuildingConverter {
             district.setId(dto.getDistrictId());
         }
 
-        // Tạo Building từ các thông tin cơ bản
         Building building = Building.builder()
                 .name(dto.getName())
                 .street(dto.getStreet())
@@ -158,9 +149,9 @@ public class BuildingConverter {
                 .managerName(dto.getManagerName())
                 .managerPhoneNumber(dto.getManagerPhoneNumber())
                 .avatar(dto.getImage())
+                .transactionType(dto.getTransactionType())
                 .build();
 
-        // --- XỬ LÝ ALBUM ẢNH (Code cũ của bạn) ---
         if (dto.getImageList() != null && !dto.getImageList().isEmpty()) {
             List<BuildingImage> buildingImages = new ArrayList<>();
             for (String url : dto.getImageList()) {
@@ -172,8 +163,6 @@ public class BuildingConverter {
             building.setBuildingImages(buildingImages);
         }
 
-        // --- [MỚI] XỬ LÝ LOẠI TÒA NHÀ (MANY-TO-MANY) ---
-        // Logic: Lấy list code từ DTO -> Tìm trong DB -> Gán vào Building
         if (dto.getTypeCode() != null && !dto.getTypeCode().isEmpty()) {
             List<Renttype> rentTypes = renttypeRepository.findByCodeIn(dto.getTypeCode());
             building.setRentTypes(rentTypes);
@@ -182,10 +171,8 @@ public class BuildingConverter {
         return building;
     }
 
-    // --- 4. Dùng cho ADMIN (Load dữ liệu cũ lên form sửa) ---
+    // --- 4. Dùng cho ADMIN (Load dữ liệu lên form sửa) ---
     public UpdateAndCreateBuildingDTO toDTO(Building entity) {
-
-        // Lấy danh sách link ảnh từ Entity để đổ lên Form
         List<String> imgList = new ArrayList<>();
         if (entity.getBuildingImages() != null) {
             imgList = entity.getBuildingImages().stream()
@@ -220,62 +207,107 @@ public class BuildingConverter {
                 .note(entity.getNote())
                 .linkOfBuilding(entity.getLinkOfBuilding())
                 .map(entity.getMap())
-                // .image(entity.getImage()) --> XÓA
                 .managerName(entity.getManagerName())
                 .managerPhoneNumber(entity.getManagerPhoneNumber())
                 .image(entity.getAvatar())
-                .imageList(imgList) // Set list ảnh vào DTO
+                .imageList(imgList)
+                .transactionType(entity.getTransactionType())
                 .build();
     }
 
     // --- 5. Hàm update Entity ---
+    // --- 5. Hàm update Entity (PHIÊN BẢN UPDATE THÔNG MINH - FIX LỖI NULL) ---
     public void updateEntity(UpdateAndCreateBuildingDTO dto, Building entity) {
+        // 1. Cập nhật Quận
         if (dto.getDistrictId() != null) {
             District d = new District();
             d.setId(dto.getDistrictId());
             entity.setDistrict(d);
         }
-        entity.setName(dto.getName());
-        entity.setStreet(dto.getStreet());
-        entity.setWard(dto.getWard());
-        entity.setStructure(dto.getStructure());
-        entity.setNumberOfBasement(dto.getNumberOfBasement());
-        entity.setFloorArea(dto.getFloorArea());
-        entity.setDirection(dto.getDirection());
-        entity.setLevel(dto.getLevel());
-        entity.setRentPrice(dto.getRentPrice());
-        entity.setRentPriceDescription(dto.getRentPriceDescription());
-        entity.setServiceFee(dto.getServiceFee());
-        entity.setCarFee(dto.getCarFee());
-        entity.setMotorbikeFee(dto.getMotorbikeFee());
-        entity.setOvertimeFee(dto.getOvertimeFee());
-        entity.setWaterFee(dto.getWaterFee());
-        entity.setElectricityFee(dto.getElectricityFee());
-        entity.setDeposit(dto.getDeposit());
-        entity.setPayment(dto.getPayment());
-        entity.setRentTime(dto.getRentTime());
-        entity.setDecorationTime(dto.getDecorationTime());
-        entity.setBrokerageFee(dto.getBrokerageFee());
-        entity.setNote(dto.getNote());
-        entity.setLinkOfBuilding(dto.getLinkOfBuilding());
-        entity.setMap(dto.getMap());
-        // entity.setImage(dto.getImage()); --> XÓA
-        entity.setManagerName(dto.getManagerName());
-        entity.setManagerPhoneNumber(dto.getManagerPhoneNumber());
-        entity.setAvatar(dto.getImage());
 
-        // --- XỬ LÝ UPDATE ALBUM ẢNH ---
-        // Logic: Xóa cũ -> Thêm mới (Hoặc để Service xử lý việc xóa, ở đây chỉ tạo list
-        // mới)
+        // 2. Cập nhật các trường String (Chỉ update nếu có gửi lên)
+        if (dto.getName() != null)
+            entity.setName(dto.getName());
+        if (dto.getStreet() != null)
+            entity.setStreet(dto.getStreet());
+        if (dto.getWard() != null)
+            entity.setWard(dto.getWard());
+        if (dto.getStructure() != null)
+            entity.setStructure(dto.getStructure());
+        if (dto.getDirection() != null)
+            entity.setDirection(dto.getDirection());
+        if (dto.getLevel() != null)
+            entity.setLevel(dto.getLevel());
+        if (dto.getRentPriceDescription() != null)
+            entity.setRentPriceDescription(dto.getRentPriceDescription());
+        if (dto.getServiceFee() != null)
+            entity.setServiceFee(dto.getServiceFee());
+        if (dto.getCarFee() != null)
+            entity.setCarFee(dto.getCarFee());
+        if (dto.getMotorbikeFee() != null)
+            entity.setMotorbikeFee(dto.getMotorbikeFee());
+        if (dto.getOvertimeFee() != null)
+            entity.setOvertimeFee(dto.getOvertimeFee());
+        if (dto.getWaterFee() != null)
+            entity.setWaterFee(dto.getWaterFee());
+        if (dto.getElectricityFee() != null)
+            entity.setElectricityFee(dto.getElectricityFee());
+        if (dto.getDeposit() != null)
+            entity.setDeposit(dto.getDeposit());
+        if (dto.getPayment() != null)
+            entity.setPayment(dto.getPayment());
+        if (dto.getRentTime() != null)
+            entity.setRentTime(dto.getRentTime());
+        if (dto.getDecorationTime() != null)
+            entity.setDecorationTime(dto.getDecorationTime());
+        if (dto.getNote() != null)
+            entity.setNote(dto.getNote());
+        if (dto.getLinkOfBuilding() != null)
+            entity.setLinkOfBuilding(dto.getLinkOfBuilding());
+        if (dto.getMap() != null)
+            entity.setMap(dto.getMap());
+        if (dto.getManagerName() != null)
+            entity.setManagerName(dto.getManagerName());
+        if (dto.getManagerPhoneNumber() != null)
+            entity.setManagerPhoneNumber(dto.getManagerPhoneNumber());
+        if (dto.getImage() != null)
+            entity.setAvatar(dto.getImage());
+
+        // 3. Cập nhật các trường Số (Quan trọng: check null để tránh lỗi DB)
+        if (dto.getNumberOfBasement() != null)
+            entity.setNumberOfBasement(dto.getNumberOfBasement());
+        if (dto.getFloorArea() != null)
+            entity.setFloorArea(dto.getFloorArea());
+
+        // 👇👇👇 ĐÂY LÀ CHỖ FIX LỖI CỦA BẠN 👇👇👇
+        if (dto.getRentPrice() != null)
+            entity.setRentPrice(dto.getRentPrice());
+
+        if (dto.getBrokerageFee() != null)
+            entity.setBrokerageFee(dto.getBrokerageFee());
+
+        // 4. Cập nhật Loại giao dịch
+        if (dto.getTransactionType() != null)
+            entity.setTransactionType(dto.getTransactionType());
+
+        // 5. Cập nhật Loại tòa nhà (Rent Types)
+        if (dto.getTypeCode() != null && !dto.getTypeCode().isEmpty()) {
+            List<Renttype> rentTypes = renttypeRepository.findByCodeIn(dto.getTypeCode());
+            entity.setRentTypes(rentTypes);
+        }
+
+        // 6. Cập nhật Album ảnh
         if (dto.getImageList() != null) {
-            // Xóa list cũ trong object Java (Hibernate sẽ tự xử lý DB nếu có
-            // orphanRemoval=true)
-            entity.getBuildingImages().clear();
+            if (entity.getBuildingImages() == null) {
+                entity.setBuildingImages(new ArrayList<>());
+            } else {
+                entity.getBuildingImages().clear();
+            }
 
             for (String url : dto.getImageList()) {
                 BuildingImage img = new BuildingImage();
                 img.setLink(url);
-                img.setBuilding(entity); // Gắn vào entity hiện tại
+                img.setBuilding(entity);
                 entity.getBuildingImages().add(img);
             }
         }

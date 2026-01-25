@@ -158,4 +158,7 @@ public class Building {
     @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BuildingImage> buildingImages = new ArrayList<>();
+
+    @Column(name = "transaction_type")
+    private String transactionType; // Giá trị: "RENT" hoặc "SALE"
 }

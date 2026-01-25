@@ -20,4 +20,7 @@ public class BuildingSearchDTO {
     // Thêm vào file BuildingSearchDTO.java
     private Integer areaFrom; // Diện tích thuê từ
     private Integer areaTo; // Diện tích thuê đến
+    private String sortBy; // Sắp xếp theo tiêu chí gì (ví dụ: "rentPriceAsc", "rentPriceDesc", "nameAsc", "nameDesc")
+    private String transactionType; // Loại giao dịch: "RENT" hoặc "SALE"
+    
 }

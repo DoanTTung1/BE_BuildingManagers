@@ -42,4 +42,5 @@ public class BuildingDetailResponse {
     // Diện tích thuê (VD: "100, 200, 300 m2")
     private String rentAreaResult;
     private List<String> imageList;
+    private String transactionType; // Giá trị: "RENT" hoặc "SALE"
 }

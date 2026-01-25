@@ -34,4 +34,7 @@ public class BuildingSearchBuilder {
 
     // --- Tiêu chí Admin ---
     private Integer status;
+
+    private String transactionType;
+    private String sortBy;
 }

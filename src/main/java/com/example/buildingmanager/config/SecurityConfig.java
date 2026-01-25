@@ -78,6 +78,9 @@ public class SecurityConfig {
                         // === NHÓM 5: QUẢN LÝ NGƯỜI DÙNG ===
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
 
+                        // === NHÓM 6: KÝ GỬI TÒA NHÀ ===
+                        .requestMatchers(HttpMethod.POST, "/api/consignments").permitAll()
+                        
                         // === OPTIONS REQUEST (QUAN TRỌNG CHO CORS) ===
                         // Cho phép tất cả các request OPTIONS (Preflight) đi qua mà không cần check
                         // quyền
