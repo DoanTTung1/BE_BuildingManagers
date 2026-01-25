@@ -3,6 +3,7 @@ package com.example.buildingmanager.controllers;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
+import com.example.buildingmanager.models.admin.response.StaffResponseDTO;
 import com.example.buildingmanager.models.building.BuildingDetailResponse;
 import com.example.buildingmanager.models.user.BuildingSearchDTO;
 import com.example.buildingmanager.services.building.IBuildingService;
@@ -135,7 +136,7 @@ public class BuildingController {
     @PostMapping("/{id}/assignment")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> assignBuilding(@PathVariable Long id, @RequestBody List<Long> staffIds) {
-        buildingService.assignBuildingToStaffs(id, staffIds);
+        buildingService.updateAssignment(id, staffIds);
         return ResponseEntity.ok("Giao tòa nhà thành công!");
     }
 
@@ -156,4 +157,12 @@ public class BuildingController {
         BuildingSearchResponse updatedBuilding = buildingService.findById(id);
         return ResponseEntity.ok(updatedBuilding);
     }
+
+    // API lấy danh sách nhân viên (Load Modal)
+    // GET: /api/buildings/{id}/staffs
+    @GetMapping("/{id}/staffs")
+    public ResponseEntity<List<StaffResponseDTO>> getStaffs(@PathVariable Long id) {
+        return ResponseEntity.ok(buildingService.getStaffsByBuildingId(id));
+    }
+
 }

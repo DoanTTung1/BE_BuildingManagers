@@ -3,6 +3,7 @@ package com.example.buildingmanager.services.building;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
+import com.example.buildingmanager.models.admin.response.StaffResponseDTO;
 import com.example.buildingmanager.models.building.BuildingDetailResponse;
 import com.example.buildingmanager.models.user.BuildingSearchDTO;
 
@@ -40,7 +41,16 @@ public interface IBuildingService {
     void assignBuildingToStaffs(Long buildingId, List<Long> staffIds);
 
     List<BuildingSearchResponse> getMyBuildings(String username);
+
     List<BuildingSearchResponse> findAllDeleted();
+
     void restoreBuilding(Long id);
+
     void approveBuilding(Long id);
+
+    // 1. Lấy danh sách nhân viên để hiện lên Modal
+    List<StaffResponseDTO> getStaffsByBuildingId(Long buildingId);
+
+    // 2. Lưu giao việc
+    void updateAssignment(Long buildingId, List<Long> staffIds);
 }

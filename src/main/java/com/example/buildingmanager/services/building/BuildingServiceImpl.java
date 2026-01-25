@@ -7,6 +7,7 @@ import com.example.buildingmanager.mapper.BuildingConverter;
 import com.example.buildingmanager.models.admin.UpdateAndCreateBuildingDTO;
 import com.example.buildingmanager.models.admin.request.BuildingSearchBuilder;
 import com.example.buildingmanager.models.admin.response.BuildingSearchResponse;
+import com.example.buildingmanager.models.admin.response.StaffResponseDTO;
 import com.example.buildingmanager.models.building.BuildingDetailResponse;
 import com.example.buildingmanager.models.user.BuildingSearchDTO;
 import com.example.buildingmanager.repositories.AssignmentBuildingRepository;
@@ -236,6 +237,49 @@ public class BuildingServiceImpl implements IBuildingService {
         Building building = buildingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tòa nhà!"));
         building.setStatus(1); // 1 = Active lại
+        buildingRepository.save(building);
+    }
+
+    @Override
+    public List<StaffResponseDTO> getStaffsByBuildingId(Long buildingId) {
+        // Lấy tất cả nhân viên (Role = STAFF)
+        List<User> allStaffs = userRepository.findByStatusAndRoles_Code(1, "STAFF");
+        // Lấy tòa nhà hiện tại
+        Building building = buildingRepository.findById(buildingId).orElse(null);
+        // Lấy danh sách nhân viên ĐANG quản lý tòa nhà này
+        List<User> assignedStaffs = building.getStaffs();
+
+        List<StaffResponseDTO> result = new ArrayList<>();
+
+        for (User staff : allStaffs) {
+            StaffResponseDTO dto = new StaffResponseDTO();
+            dto.setId(staff.getId());
+            dto.setFullName(staff.getFullName());
+
+            // Kiểm tra xem nhân viên này có nằm trong danh sách đã giao không
+            if (assignedStaffs.contains(staff)) {
+                dto.setChecked("checked");
+            } else {
+                dto.setChecked("");
+            }
+            result.add(dto);
+        }
+        return result;
+    }
+
+    // 2. Lưu giao việc (Thay thế danh sách cũ bằng danh sách mới)
+    @Override
+    public void updateAssignment(Long buildingId, List<Long> staffIds) {
+        Building building = buildingRepository.findById(buildingId)
+                .orElseThrow(() -> new RuntimeException("Building not found"));
+
+        // Tìm các nhân viên theo list ID gửi lên
+        List<User> newStaffs = userRepository.findAllById(staffIds);
+
+        // Cập nhật lại danh sách (JPA tự động xóa cũ thêm mới trong bảng
+        // assignmentbuilding)
+        building.setStaffs(newStaffs);
+
         buildingRepository.save(building);
     }
 }

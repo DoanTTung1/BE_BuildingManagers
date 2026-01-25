@@ -8,10 +8,5 @@ import lombok.Setter;
 public class StaffResponseDTO {
     private Long id;
     private String fullName;
-
-    /**
-     * Trạng thái checked trong checkbox.
-     * Value: "checked" (nếu nhân viên đang quản lý tòa này) hoặc "" (rỗng).
-     */
-    private String checked;
+    private String checked; // "checked" nếu nhân viên đó đang quản lý tòa nhà, ngược lại là ""
 }

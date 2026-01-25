@@ -34,7 +34,6 @@ public class Building {
     @Column(name = "ward")
     private String ward;
 
-    // Mapping khóa ngoại sang bảng District
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "districtid", nullable = false)
     private District district;
@@ -58,7 +57,7 @@ public class Building {
     private Integer rentPrice;
 
     @Lob
-    @Column(name = "rentpricedescription", columnDefinition = "TEXT") // Thêm columnDefinition cho chắc
+    @Column(name = "rentpricedescription", columnDefinition = "TEXT")
     private String rentPriceDescription;
 
     @Column(name = "servicefee")
@@ -100,10 +99,21 @@ public class Building {
     @Column(name = "linkofbuilding")
     private String linkOfBuilding;
 
-    @Column(name = "map", columnDefinition = "TEXT") // Map thường dài (iframe)
+    @Column(name = "map")
     private String map;
 
-    // Đã xóa trường "image" vì đã có avatar và List buildingImages
+    @Column(name = "avatar")
+    private String avatar;
+
+    @Column(name = "status")
+    private Integer status;
+
+    // Thêm cột type cho khớp DB
+    @Column(name = "type")
+    private String type;
+
+    @Column(name = "transaction_type")
+    private String transactionType;
 
     // --- AUDITING ---
     @CreatedDate
@@ -120,45 +130,31 @@ public class Building {
     @Column(name = "modifiedby")
     private String modifiedBy;
 
-    // --- MANAGER INFO ---
     @Column(name = "managername")
     private String managerName;
 
     @Column(name = "managerphonenumber")
     private String managerPhoneNumber;
 
-    // Ảnh đại diện (Thumbnail) hiển thị ở trang danh sách
-    @Column(name = "avatar")
-    private String avatar;
+    // ================= RELATIONSHIPS =================
 
-    @Column(name = "status")
-    private Integer status;
-
+    // 1. Rent Types (Chuẩn)
     @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(name = "buildingrenttype", // <--- SỬA LẠI TÊN NÀY CHO KHỚP DB CỦA BẠN
-            joinColumns = @JoinColumn(name = "buildingid"), inverseJoinColumns = @JoinColumn(name = "renttypeid"))
+    @JoinTable(name = "buildingrenttype", joinColumns = @JoinColumn(name = "buildingid"), inverseJoinColumns = @JoinColumn(name = "renttypeid"))
     private List<Renttype> rentTypes = new ArrayList<>();
 
-    // ==========================================================
-    // RELATIONSHIPS
-    // ==========================================================
+    // 2. Staffs Assignment (Sửa lại thành ManyToMany để dễ code giao việc)
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "assignmentbuilding", joinColumns = @JoinColumn(name = "buildingid"), inverseJoinColumns = @JoinColumn(name = "staffid"))
+    private List<User> staffs = new ArrayList<>();
 
-    // 1. Link với bảng `rentarea`
+    // 3. Rent Areas
     @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Rentarea> rentAreas = new ArrayList<>();
 
-    // 2. Link với bảng `assignmentbuilding`
-    @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @Builder.Default
-    private List<AssignmentBuilding> assignmentBuildings = new ArrayList<>();
-
-    // 3. Link với bảng `building_image` (Danh sách album ảnh)
-    // ĐÃ SỬA: Chỉ giữ lại 1 List duy nhất, xóa List "images" thừa
+    // 4. Building Images
     @OneToMany(mappedBy = "building", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<BuildingImage> buildingImages = new ArrayList<>();
-
-    @Column(name = "transaction_type")
-    private String transactionType; // Giá trị: "RENT" hoặc "SALE"
 }
