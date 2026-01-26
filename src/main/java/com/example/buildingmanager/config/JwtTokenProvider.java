@@ -17,11 +17,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JwtTokenProvider {
 
-    // Khóa bí mật
-    private final String JWT_SECRET = "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970";
+    // Thay vì để cứng chuỗi String, hãy dùng @Value
+    @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
+    private String JWT_SECRET;
 
-    // Thời gian hết hạn (7 ngày)
-    private final long JWT_EXPIRATION = 604800000L;
+    @org.springframework.beans.factory.annotation.Value("${jwt.expiration}")
+    private long JWT_EXPIRATION;
 
     private Key getSignInKey() {
         byte[] keyBytes = Decoders.BASE64.decode(JWT_SECRET);
@@ -49,6 +50,30 @@ public class JwtTokenProvider {
                 // 2. THÊM DÒNG NÀY: Nhét quyền vào Token
                 .claim("roles", roles)
 
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .signWith(getSignInKey(), SignatureAlgorithm.HS256)
+                .compact();
+    }
+
+    // ==============================================================
+    // THÊM HÀM NÀY ĐỂ HỖ TRỢ GOOGLE LOGIN
+    // (Vì Google Login trả về User Entity, không phải Authentication)
+    // ==============================================================
+    public String generateToken(com.example.buildingmanager.entities.User user) {
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION);
+
+        // Lấy quyền từ User Entity
+        // Lưu ý: Đảm bảo user.getRoles() trả về danh sách quyền (Set<String> hoặc
+        // Set<Role>)
+        List<String> roles = user.getRoles().stream()
+                .map(Object::toString) // Chuyển Role thành String
+                .collect(Collectors.toList());
+
+        return Jwts.builder()
+                .setSubject(user.getUserName()) // Lấy username
+                .claim("roles", roles) // Nhét quyền vào
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)

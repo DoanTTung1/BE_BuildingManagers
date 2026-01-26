@@ -12,4 +12,11 @@ public interface IAuthService {
     AuthResponse register(RegisterRequest request);
 
     boolean verifyOtp(String username, String otpInput);
+
+    // 1. Hàm xử lý quên mật khẩu (Gửi email)
+    void forgotPassword(String email);
+
+    // 2. Hàm xử lý đăng nhập Google
+    // Trả về AuthResponse để đồng bộ với hàm login thường
+    AuthResponse loginWithGoogle(String credential) throws Exception;
 }

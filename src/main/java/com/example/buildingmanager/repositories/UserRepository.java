@@ -27,4 +27,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByStatusNot(Integer status);
 
     List<User> findByStatusAndRoles_Code(Integer status, String roleCode);
+
+    // (Dùng cho Quên mật khẩu & Google Login)
+    Optional<User> findByEmail(String email);
 }
