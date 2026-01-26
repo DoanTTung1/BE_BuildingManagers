@@ -73,7 +73,8 @@ public class AuthController {
     public ResponseEntity<?> forgotPassword(@RequestParam String email) {
         try {
             authService.forgotPassword(email);
-            return ResponseEntity.ok("Mật khẩu mới đã được gửi vào email: " + email);
+            return ResponseEntity
+                    .ok(Map.of("success", true, "message", "Mật khẩu mới đã được gửi vào email: " + email));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
         }

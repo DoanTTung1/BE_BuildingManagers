@@ -41,6 +41,11 @@ public class SecurityConfig {
                 // 2. Tắt CSRF (Do dùng Token JWT nên không cần cái này)
                 .csrf(AbstractHttpConfigurer::disable)
 
+                .headers(headers -> headers
+                        .addHeaderWriter((request, response) -> {
+                            response.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
+                        }))
+
                 // 3. Stateless Session (Server không lưu trạng thái đăng nhập, dùng Token để
                 // nhớ)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
