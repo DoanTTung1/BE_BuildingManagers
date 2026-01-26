@@ -167,10 +167,15 @@ public class AuthServiceImpl implements IAuthService {
                                 .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống!"));
 
                 String newPassword = UUID.randomUUID().toString().substring(0, 8);
-                user.setPassword(passwordEncoder.encode(newPassword));
-                userRepository.save(user);
+                user.setPassword(passwordEncoder.encode(newPassword)); // Mã hóa mật khẩu
+                userRepository.save(user); // Lưu vào database
 
                 SimpleMailMessage message = new SimpleMailMessage();
+
+                // --- THÊM DÒNG NÀY (QUAN TRỌNG NHẤT) ---
+                // Phải điền chính xác email bạn đã Verify bên SendGrid
+                message.setFrom("photonics.pixel02558@gmail.com");
+
                 message.setTo(email);
                 message.setSubject("Cấp lại mật khẩu - EliteHomes");
                 message.setText("Chào " + user.getFullName() + ",\n\n"
@@ -180,12 +185,14 @@ public class AuthServiceImpl implements IAuthService {
                 mailSender.send(message);
         }
 
-        // --- SỬA LẠI: LOGIC GOOGLE LOGIN ---
+        // --- CODE CHUẨN ĐỂ ĐĂNG NHẬP GOOGLE ---
         @Override
+        @Transactional
         public AuthResponse loginWithGoogle(String credential) throws Exception {
+                // 1. Xác thực Token với Google
                 GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(),
                                 new GsonFactory())
-                                .setAudience(Collections.singletonList(googleClientId)) // Đã có biến googleClientId
+                                .setAudience(Collections.singletonList(googleClientId))
                                 .build();
 
                 GoogleIdToken idToken = verifier.verify(credential);
@@ -197,36 +204,41 @@ public class AuthServiceImpl implements IAuthService {
                 String name = (String) payload.get("name");
                 String pictureUrl = (String) payload.get("picture");
 
+                // 2. Tìm User hoặc Tạo mới
                 User user = userRepository.findByEmail(email).orElse(null);
                 if (user == null) {
                         user = new User();
                         user.setEmail(email);
                         user.setUserName(email);
-                        user.setFullName(name);
-                        user.setAvatar(pictureUrl);
-                        user.setPassword(passwordEncoder.encode("GoogleLogin@123"));
-                        user.setStatus(1); // Active user
+                        user.setPassword(passwordEncoder.encode("GoogleLogin@123")); // Mật khẩu giả
+                        user.setStatus(1);
 
-                        // --- QUAN TRỌNG: Gán Role cho User mới ---
                         Role userRole = roleRepository.findByCode("USER");
                         if (userRole != null) {
                                 user.setRoles(new HashSet<>(Collections.singletonList(userRole)));
                         }
-
-                        userRepository.save(user);
                 }
 
-                // Dùng đúng tên biến tokenProvider
-                String jwt = tokenProvider.generateToken(user);
+                // 3. Luôn cập nhật thông tin mới nhất (Avatar, Tên) từ Google
+                user.setFullName(name);
+                user.setAvatar(pictureUrl);
+                userRepository.save(user); // Lưu User (Cả mới và cũ đều được lưu)
 
+                // 4. Tạo JWT Token (Tạo Authentication giả để khớp với hàm login thường)
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                                user.getUserName(), null, null);
+
+                // Dùng generateToken(authentication) cho đồng bộ với hàm login
+                String jwt = tokenProvider.generateToken(authentication);
+
+                // 5. Trả về kết quả
                 List<String> roleNames = user.getRoles().stream()
-                                .map(role -> role.getCode()) // Chú ý: Role entity của bạn dùng getCode()
+                                .map(Role::getCode)
                                 .collect(Collectors.toList());
 
                 return new AuthResponse(
                                 jwt, user.getId(), user.getUserName(),
-                                user.getFullName(), user.getEmail(),
-                                user.getPhone(), user.getAvatar(),
-                                roleNames, false);
+                                user.getFullName(), user.getEmail(), user.getPhone(),
+                                user.getAvatar(), roleNames, false);
         }
 }

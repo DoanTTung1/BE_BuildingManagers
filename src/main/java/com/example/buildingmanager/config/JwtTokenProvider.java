@@ -64,16 +64,14 @@ public class JwtTokenProvider {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + JWT_EXPIRATION);
 
-        // Lấy quyền từ User Entity
-        // Lưu ý: Đảm bảo user.getRoles() trả về danh sách quyền (Set<String> hoặc
-        // Set<Role>)
+        // --- SỬA LẠI ĐOẠN NÀY ĐỂ LẤY ĐÚNG TÊN QUYỀN (VÍ DỤ: "USER") ---
         List<String> roles = user.getRoles().stream()
-                .map(Object::toString) // Chuyển Role thành String
+                .map(role -> role.getCode()) // Lấy trường code của Role (thay vì toString)
                 .collect(Collectors.toList());
 
         return Jwts.builder()
                 .setSubject(user.getUserName()) // Lấy username
-                .claim("roles", roles) // Nhét quyền vào
+                .claim("roles", roles) // Nhét danh sách quyền vào Token
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(getSignInKey(), SignatureAlgorithm.HS256)
