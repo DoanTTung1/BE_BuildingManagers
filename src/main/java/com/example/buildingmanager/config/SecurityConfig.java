@@ -138,7 +138,7 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "https://thanhtung-building.vercel.app" // Frontend trên Vercel
+                "https://thanhtung-building.vercel.app" 
         ));
 
         // 2. Cho phép TẤT CẢ các method
