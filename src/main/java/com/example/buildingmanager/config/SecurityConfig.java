@@ -80,11 +80,17 @@ public class SecurityConfig {
 
                         // === NHÓM 6: KÝ GỬI TÒA NHÀ ===
                         .requestMatchers(HttpMethod.POST, "/api/consignments").permitAll()
-                        
+
                         // === OPTIONS REQUEST (QUAN TRỌNG CHO CORS) ===
                         // Cho phép tất cả các request OPTIONS (Preflight) đi qua mà không cần check
                         // quyền
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        .requestMatchers(HttpMethod.POST, "/api/contacts").permitAll()
+                        // Chỉ ADMIN mới được xem, xóa, sửa liên hệ
+                        .requestMatchers(HttpMethod.GET, "/api/contacts").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/contacts/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/contacts/**").hasRole("ADMIN")
 
                         // === NHÓM 6: CÁC API KHÁC ===
                         .anyRequest().authenticated())
