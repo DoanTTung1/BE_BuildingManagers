@@ -1,5 +1,6 @@
 package com.example.buildingmanager.controllers.auth;
 
+import com.example.buildingmanager.models.auth.ChangePasswordRequest;
 import com.example.buildingmanager.models.auth.LoginRequest;
 import com.example.buildingmanager.models.auth.RegisterRequest;
 import com.example.buildingmanager.models.auth.OtpVerificationRequest;
@@ -8,12 +9,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map; // Bắt buộc import cái này để đọc Body JSON của Google
+import java.security.Principal;
+import java.util.Collections;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*") // Cho phép Frontend (React) gọi API mà không bị chặn (CORS)
+@CrossOrigin(origins = "*")
 public class AuthController {
 
     private final IAuthService authService;
@@ -76,7 +79,8 @@ public class AuthController {
             return ResponseEntity
                     .ok(Map.of("success", true, "message", "Mật khẩu mới đã được gửi vào email: " + email));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 
@@ -88,7 +92,31 @@ public class AuthController {
             String token = body.get("token");
             return ResponseEntity.ok(authService.loginWithGoogle(token));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Lỗi đăng nhập Google: " + e.getMessage());
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    // 7. Thay đổi mật khẩu
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestBody ChangePasswordRequest request,
+            Principal principal) {
+        if (principal == null) {
+            return ResponseEntity.status(401)
+                    .body(Collections.singletonMap("message", "Chưa đăng nhập"));
+        }
+
+        try {
+            authService.changePassword(principal.getName(), request);
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "success", true,
+                            "message", "Đổi mật khẩu thành công!"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Collections.singletonMap("message", e.getMessage()));
         }
     }
 }

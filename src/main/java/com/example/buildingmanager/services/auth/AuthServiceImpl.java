@@ -4,6 +4,7 @@ import com.example.buildingmanager.config.JwtTokenProvider;
 import com.example.buildingmanager.entities.Role;
 import com.example.buildingmanager.entities.User;
 import com.example.buildingmanager.models.auth.AuthResponse;
+import com.example.buildingmanager.models.auth.ChangePasswordRequest;
 import com.example.buildingmanager.models.auth.LoginRequest;
 import com.example.buildingmanager.models.auth.RegisterRequest;
 import com.example.buildingmanager.repositories.RoleRepository;
@@ -240,5 +241,27 @@ public class AuthServiceImpl implements IAuthService {
                                 jwt, user.getId(), user.getUserName(),
                                 user.getFullName(), user.getEmail(), user.getPhone(),
                                 user.getAvatar(), roleNames, false);
+        }
+
+        @Override
+        @Transactional
+        public void changePassword(String username, ChangePasswordRequest request) {
+                // 1. Lấy thông tin user từ DB
+                User user = userRepository.findByUserNameAndStatus(username, 1)
+                                .orElseThrow(() -> new RuntimeException("Người dùng không tồn tại!"));
+
+                // 2. Kiểm tra mật khẩu cũ có đúng không
+                if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+                        throw new RuntimeException("Mật khẩu hiện tại không chính xác!");
+                }
+
+                // 3. Kiểm tra mật khẩu mới và xác nhận có khớp nhau không
+                if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+                        throw new RuntimeException("Mật khẩu mới và xác nhận mật khẩu không khớp!");
+                }
+
+                // 4. Đổi mật khẩu và lưu xuống DB
+                user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+                userRepository.save(user);
         }
 }
