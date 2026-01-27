@@ -54,7 +54,7 @@ public class Building {
     private String level;
 
     @Column(name = "rentprice", nullable = false)
-    private Integer rentPrice;
+    private Long rentPrice;
 
     @Lob
     @Column(name = "rentpricedescription", columnDefinition = "TEXT")

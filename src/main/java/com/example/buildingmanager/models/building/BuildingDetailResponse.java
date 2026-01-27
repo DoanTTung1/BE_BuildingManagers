@@ -17,7 +17,7 @@ public class BuildingDetailResponse {
     private Integer floorArea;
     private String direction;
     private String level;
-    private Integer rentPrice;
+    private Long rentPrice;
     private String rentPriceDescription;
     private String serviceFee;
     private String carFee;          // Khớp với Entity

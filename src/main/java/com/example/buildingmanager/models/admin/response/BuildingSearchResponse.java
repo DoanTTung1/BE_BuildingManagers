@@ -20,7 +20,7 @@ public class BuildingSearchResponse implements Serializable {
     private String managerName;
     private String managerPhone;
     private Integer floorArea;
-    private Integer rentPrice;
+    private Long rentPrice;
     private String serviceFee;
 
     // Chuỗi diện tích trống: "100, 200, 300" (Lấy từ bảng rentarea để hiển thị)
